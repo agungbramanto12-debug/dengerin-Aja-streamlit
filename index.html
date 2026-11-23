@@ -259,12 +259,12 @@
           <button
             id="btn-open-settings"
             type="button"
-            title="Pengaturan Gemini API Key (Untuk Browser Standalone)"
+            title="Pengaturan koneksi AI Dengerin Aja"
             class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-charcoal text-xs font-semibold transition-all"
           >
             <span id="api-status-dot" class="w-2 h-2 rounded-full bg-slate-300 shrink-0"></span>
-            <i data-lucide="key-round" class="w-4 h-4 text-neu"></i>
-            <span class="hidden lg:inline">API Key</span>
+            <i data-lucide="cloud-cog" class="w-4 h-4 text-neu"></i>
+            <span class="hidden lg:inline">AI Settings</span>
           </button>
 
           <button
@@ -1152,11 +1152,11 @@
       <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
         <div class="flex items-center gap-2.5">
           <span class="w-8 h-8 rounded-xl bg-brand-soft text-brand flex items-center justify-center">
-            <i data-lucide="key-round" class="w-4 h-4"></i>
+            <i data-lucide="cloud-cog" class="w-4 h-4"></i>
           </span>
           <div>
-            <h3 class="font-display font-bold text-sm text-charcoal">Pengaturan Browser Standalone</h3>
-            <p class="text-[11px] text-neu">Jalankan langsung di browser Anda tanpa membuka Gemini</p>
+            <h3 class="font-display font-bold text-sm text-charcoal">Pengaturan AI</h3>
+            <p class="text-[11px] text-neu">Dikelola melalui Supabase</p>
           </div>
         </div>
         <button id="btn-close-settings" type="button" class="p-2 rounded-lg hover:bg-slate-100 text-neu hover:text-charcoal" aria-label="Tutup Pengaturan">
@@ -1165,33 +1165,9 @@
       </div>
 
       <div class="p-5 space-y-4">
-        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-1.5">
-          <p><strong class="text-charcoal">Cara Pakai Mandiri:</strong> Masukkan Gemini API Key gratis dari Google AI Studio. Key ini disimpan <strong>100% lokal di browser Anda</strong> (<code>localStorage</code>) dan hanya dikirim langsung ke server Google Gemini API.</p>
-          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 font-semibold text-brand hover:underline">
-            <span>Dapatkan Gemini API Key gratis di Google AI Studio</span>
-            <i data-lucide="external-link" class="w-3 h-3"></i>
-          </a>
-        </div>
-
-        <div>
-          <label for="input-api-key" class="block text-xs font-semibold text-charcoal mb-1.5">Gemini API Key</label>
-          <div class="relative">
-            <input
-              id="input-api-key"
-              type="password"
-              autocomplete="off"
-              placeholder="AIzaSy..."
-              class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-xs sm:text-sm font-mono text-charcoal"
-            />
-            <button
-              id="btn-toggle-key-visibility"
-              type="button"
-              class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-neu hover:text-charcoal"
-              aria-label="Tampilkan atau sembunyikan API Key"
-            >
-              <i data-lucide="eye" class="w-4 h-4"></i>
-            </button>
-          </div>
+        <div class="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-slate-700 leading-relaxed space-y-1.5">
+          <p><strong class="text-charcoal">Koneksi aman aktif.</strong> Gemini API Key disimpan di Supabase, bukan di browser. Dashboard mengirim permintaan analisis melalui backend Dengerin Aja.</p>
+          <p class="text-slate-600">Anda tidak perlu memasukkan atau menyimpan Gemini API Key di sini.</p>
         </div>
 
         <div>
@@ -1200,9 +1176,8 @@
             id="select-ai-model"
             class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-charcoal focus:border-brand outline-none"
           >
-            <option value="gemini-2.5-flash">gemini-2.5-flash (Direkomendasikan — Cepat &amp; Stabil untuk Standalone)</option>
-            <option value="gemini-2.5-pro">gemini-2.5-pro (Analisa Strategis Mendalam)</option>
-            <option value="gemini-3-flash-preview">gemini-3-flash-preview (Default Preview Canvas)</option>
+            <option value="gemini-3.5-flash-lite">gemini-3.5-flash-lite — Efisien (default)</option>
+            <option value="gemini-3.8-flash">gemini-3.8-flash — Analisis lebih mendalam</option>
           </select>
         </div>
 
@@ -1210,9 +1185,9 @@
           <button
             id="btn-clear-api-key"
             type="button"
-            class="px-3.5 py-2 rounded-xl text-xs font-semibold text-neg-dark hover:bg-neg-soft transition-colors"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold text-neu hover:bg-slate-100 transition-colors"
           >
-            Hapus Key Tersimpan
+            Reset Model
           </button>
           <button
             id="btn-save-settings"
@@ -1233,7 +1208,7 @@
      * DENGERIN AJA — AI SOCIAL & DIGITAL MEDIA LISTENING ENGINE
      * Arsitektur:
      * 1. State Terpusat + LocalStorage History Snapshots
-     * 2. Integrasi Gemini API (gemini-3-flash-preview):
+     * 2. Integrasi Gemini API melalui Supabase Edge Function:
      *    - Tahap Grounding Web Real-Time via Google Search (`tools: [{ google_search: {} }]`)
      *    - Tahap Structured JSON Schema Output dengan Exponential Backoff (1s, 2s, 4s)
      * 3. Mode A (Eksplorasi AI Terkalibrasi) & Mode B (Data Mentah + CSV Upload Deterministik)
@@ -1243,52 +1218,46 @@
      * ============================================================================
      */
 
-    const apiKey = ""; // Disediakan otomatis oleh runtime saat kosong
+    // Konfigurasi koneksi Supabase. Publishable key memang boleh berada di frontend;
+    // jangan pernah menaruh Gemini API Key atau Supabase Secret Key di sini.
+    const SUPABASE_FUNCTION_URL = "https://wzfyreojqagxizmfxwyg.supabase.co/functions/v1/dengerin-ai";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_sRP3lQEwdrrBIGgRRbzvFg_pc4SFwjR";
+    const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+    const ALLOWED_GEMINI_MODELS = ["gemini-3.5-flash-lite", "gemini-3.8-flash"];
     const HISTORY_STORAGE_KEY = "dengerin_aja_snapshots_v1";
     const SETTINGS_STORAGE_KEY = "dengerin_aja_api_settings_v1";
 
-    // Muat pengaturan API Key & Model untuk penggunaan standalone di browser lokal
+    // Hanya menyimpan pilihan model di browser; API Key tetap berada di Supabase.
     function loadApiSettings() {
       try {
         const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
           return {
-            apiKey: (parsed.apiKey || "").trim(),
-            model: parsed.model || "gemini-2.5-flash"
+            model: ALLOWED_GEMINI_MODELS.includes(parsed.model)
+              ? parsed.model
+              : DEFAULT_GEMINI_MODEL
           };
         }
       } catch (e) {}
-      return { apiKey: "", model: "gemini-2.5-flash" };
-    }
-
-    function getGeminiEndpoint() {
-      const settings = loadApiSettings();
-      if (settings.apiKey) {
-        const model = encodeURIComponent(settings.model || "gemini-2.5-flash");
-        return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
-      }
-      // Fallback otomatis saat dijalankan di dalam runtime preview Gemini
-      return `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+      return { model: DEFAULT_GEMINI_MODEL };
     }
 
     function updateSettingsBadge() {
-      const settings = loadApiSettings();
       const dot = document.getElementById("api-status-dot");
       if (!dot) return;
-      if (settings.apiKey) {
-        dot.className = "w-2 h-2 rounded-full bg-pos shrink-0";
-        dot.title = `API Key aktif (${settings.model})`;
-      } else {
-        dot.className = "w-2 h-2 rounded-full bg-amber-400 shrink-0";
-        dot.title = "Belum ada API Key lokal (klik untuk atur di mode browser standalone)";
-      }
+      const configured =
+        SUPABASE_FUNCTION_URL.startsWith("https://") &&
+        SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_");
+      dot.className = `w-2 h-2 rounded-full shrink-0 ${configured ? "bg-pos" : "bg-amber-400"}`;
+      dot.title = configured
+        ? "Backend Supabase terhubung"
+        : "Konfigurasi Supabase belum dilengkapi";
     }
 
     function openSettingsModal() {
       const settings = loadApiSettings();
-      document.getElementById("input-api-key").value = settings.apiKey;
-      document.getElementById("select-ai-model").value = settings.model || "gemini-2.5-flash";
+      document.getElementById("select-ai-model").value = settings.model;
       const modal = document.getElementById("settings-modal");
       modal.classList.remove("hidden");
       modal.classList.add("flex");
@@ -1668,14 +1637,25 @@
     async function fetchGeminiWithRetry(payload) {
       const maxRetries = 3;
       const delays = [1000, 2000, 4000];
-      const endpoint = getGeminiEndpoint();
+      const settings = loadApiSettings();
+
+      if (!SUPABASE_FUNCTION_URL.startsWith("https://") ||
+          !SUPABASE_PUBLISHABLE_KEY.startsWith("sb_publishable_")) {
+        throw new Error("Konfigurasi Supabase belum lengkap. Periksa URL Edge Function dan Publishable Key.");
+      }
 
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
-          const response = await fetch(endpoint, {
+          const response = await fetch(SUPABASE_FUNCTION_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+            headers: {
+              "Content-Type": "application/json",
+              "apikey": SUPABASE_PUBLISHABLE_KEY
+            },
+            body: JSON.stringify({
+              model: settings.model || DEFAULT_GEMINI_MODEL,
+              payload
+            })
           });
 
           if (!response.ok) {
@@ -1684,8 +1664,8 @@
               continue;
             }
             const errText = await response.text();
-            const err = new Error(`HTTP ${response.status}: ${errText.slice(0, 140)}`);
-            if (response.status === 400 || response.status === 401 || response.status === 403) {
+            const err = new Error(`HTTP ${response.status}: ${errText.slice(0, 240)}`);
+            if (response.status === 401 || response.status === 403) {
               err.isAuthError = true;
             }
             throw err;
@@ -1694,7 +1674,7 @@
           return await response.json();
         } catch (err) {
           if (err?.isAuthError) throw err;
-          if (attempt < maxRetries) {
+          if (attempt < maxRetries && !String(err?.message || "").startsWith("Konfigurasi Supabase")) {
             await new Promise(res => setTimeout(res, delays[attempt]));
             continue;
           }
@@ -3645,23 +3625,19 @@ Buat ringkasan eksekutif, alasan mengapa catalyst menonjol, status tren, dan 3 k
       document.getElementById("settings-modal").addEventListener("click", (e) => {
         if (e.target.id === "settings-modal") closeSettingsModal();
       });
-      document.getElementById("btn-toggle-key-visibility").addEventListener("click", () => {
-        const inp = document.getElementById("input-api-key");
-        inp.type = inp.type === "password" ? "text" : "password";
-      });
       document.getElementById("btn-save-settings").addEventListener("click", () => {
-        const keyVal = document.getElementById("input-api-key").value.trim();
         const modelVal = document.getElementById("select-ai-model").value;
-        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ apiKey: keyVal, model: modelVal }));
+        const safeModel = ALLOWED_GEMINI_MODELS.includes(modelVal) ? modelVal : DEFAULT_GEMINI_MODEL;
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ model: safeModel }));
         updateSettingsBadge();
         closeSettingsModal();
-        showToast(keyVal ? `API Key tersimpan lokal (${modelVal}). Siap dijalankan langsung di browser!` : "Pengaturan model tersimpan.", "success");
+        showToast(`Pilihan model ${safeModel} tersimpan. Koneksi AI menggunakan Supabase.`, "success");
       });
       document.getElementById("btn-clear-api-key").addEventListener("click", () => {
         localStorage.removeItem(SETTINGS_STORAGE_KEY);
-        document.getElementById("input-api-key").value = "";
+        document.getElementById("select-ai-model").value = DEFAULT_GEMINI_MODEL;
         updateSettingsBadge();
-        showToast("API Key lokal telah dihapus dari browser.", "info");
+        showToast("Pilihan model dikembalikan ke default.", "info");
       });
 
       // Mode switcher
