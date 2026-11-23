@@ -1,0 +1,3812 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dengerin Aja — AI Social & Digital Media Listening Engine</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS v3 CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- html2pdf.js CDN untuk ekspor PDF langsung -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <!-- Konfigurasi Palet Warna & Tipografi Dengerin Aja -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['Plus Jakarta Sans', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            canvas: '#F8F9FA',
+            charcoal: '#111827',
+            brand: {
+              DEFAULT: '#F97316',
+              hover: '#EA580C',
+              soft: '#FFF7ED',
+              border: '#FDBA74',
+            },
+            pos: {
+              DEFAULT: '#10B981',
+              soft: '#ECFDF5',
+              dark: '#047857',
+            },
+            neg: {
+              DEFAULT: '#EF4444',
+              soft: '#FEF2F2',
+              dark: '#B91C1C',
+            },
+            neu: {
+              DEFAULT: '#64748B',
+              light: '#CBD5E1',
+              soft: '#F1F5F9',
+            }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    /* Tipografi tabular agar angka KPI sejajar rapi */
+    .tabular-nums {
+      font-variant-numeric: tabular-nums;
+    }
+
+    body {
+      background-color: #F8F9FA;
+      color: #111827;
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    /* Animasi halus untuk transisi kartu, drawer, & indikator */
+    @keyframes fadeSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-up {
+      animation: fadeSlideUp 0.3s ease-out forwards;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.6; }
+    }
+
+    .pulse-dot {
+      animation: pulseDot 1.6s infinite ease-in-out;
+    }
+
+    /* Scrollbar minimalis */
+    .custom-scroll::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #F1F5F9;
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #CBD5E1;
+      border-radius: 999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94A3B8;
+    }
+
+    /* Drag & Drop visual feedback */
+    .dropzone-active {
+      border-color: #F97316 !important;
+      background-color: #FFF7ED !important;
+    }
+
+    /* CSS Khusus Cetak / Print Fallback agar Laporan PDF rapi */
+    @media print {
+      body {
+        background: #FFFFFF !important;
+      }
+      #app-shell,
+      #toast-container,
+      #loading-overlay,
+      #history-drawer-backdrop,
+      #settings-modal,
+      #pdf-modal-backdrop-controls {
+        display: none !important;
+      }
+      #pdf-modal {
+        position: static !important;
+        display: block !important;
+        background: #FFFFFF !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+      #pdf-modal-wrapper {
+        box-shadow: none !important;
+        border: none !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      #pdf-report-content {
+        padding: 0 !important;
+      }
+      .pdf-avoid-break {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      .pdf-page-break {
+        page-break-before: always;
+        break-before: page;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- Toast Notification Container (Pengganti alert/confirm) -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Loading Overlay Bertahap saat AI Menganalisis -->
+  <div id="loading-overlay" class="fixed inset-0 z-50 bg-white/90 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-2xl shadow-xl max-w-md w-full p-6 sm:p-8 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-brand-soft border border-brand-border/60 flex items-center justify-center mx-auto mb-5">
+        <div class="w-5 h-5 border-2 border-brand border-t-transparent rounded-full animate-spin"></div>
+      </div>
+      <h3 class="font-display font-bold text-lg text-charcoal mb-1">Dengerin Aja sedang bekerja</h3>
+      <p id="loading-subtitle" class="text-sm text-neu mb-6">Memproses percakapan digital sesuai kalibrasi Anda...</p>
+
+      <!-- Progress Steps -->
+      <div class="space-y-3 text-left mb-6">
+        <div id="step-1" class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 transition-all">
+          <div class="step-dot w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0"></div>
+          <span class="text-xs sm:text-sm font-medium text-slate-600">1/3 Mengumpulkan &amp; menyaring percakapan...</span>
+        </div>
+        <div id="step-2" class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 transition-all">
+          <div class="step-dot w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0"></div>
+          <span class="text-xs sm:text-sm font-medium text-slate-600">2/3 Mengkalibrasi sentimen &amp; deteksi sarkasme...</span>
+        </div>
+        <div id="step-3" class="flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 transition-all">
+          <div class="step-dot w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0"></div>
+          <span class="text-xs sm:text-sm font-medium text-slate-600">3/3 Menyusun analisa strategis &amp; rekomendasi...</span>
+        </div>
+      </div>
+
+      <div class="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+        <div id="loading-progress-bar" class="bg-brand h-full rounded-full transition-all duration-500" style="width: 15%"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SLIDE-OVER DRAWER: RIWAYAT ANALISA (LOCAL STORAGE) -->
+  <div id="history-drawer-backdrop" class="fixed inset-0 z-50 hidden bg-charcoal/50 backdrop-blur-sm">
+    <div class="absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl border-l border-slate-200 flex flex-col animate-fade-up">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-brand-soft text-brand flex items-center justify-center">
+            <i data-lucide="history" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h3 class="font-display font-bold text-sm text-charcoal">Riwayat Analisa Tersimpan</h3>
+            <p class="text-[11px] text-neu">Klik untuk memuat ulang snapshot dashboard</p>
+          </div>
+        </div>
+        <button id="btn-close-history" type="button" class="p-2 rounded-lg hover:bg-slate-100 text-neu hover:text-charcoal" aria-label="Tutup Riwayat">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+      <div id="history-list" class="flex-1 overflow-y-auto p-4 space-y-2.5 custom-scroll"></div>
+      <div class="p-4 border-t border-slate-200 flex items-center justify-between gap-2 bg-slate-50">
+        <span id="history-count-label" class="text-xs text-neu">0 snapshot tersimpan</span>
+        <button id="btn-clear-history" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-neg-dark hover:bg-neg-soft transition-colors">
+          Bersihkan Semua
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN APP SHELL -->
+  <div id="app-shell" class="flex-1 flex flex-col">
+
+    <!-- HEADER MINIMALIS -->
+    <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
+        <!-- Logo & Identitas Brand -->
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-charcoal flex items-center justify-center shadow-sm shrink-0">
+            <!-- Ikon Gelombang Suara Minimalis (Inline SVG) -->
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path d="M4 12V12.01M8 8V16M12 5V19M16 9V15M20 12V12.01" stroke="#F97316" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <div class="truncate">
+            <div class="flex items-center gap-2">
+              <span class="font-display font-extrabold text-base sm:text-lg tracking-tight text-charcoal">Dengerin Aja</span>
+              <span class="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-brand-soft text-brand border border-brand-border/60">
+                <span class="w-1.5 h-1.5 rounded-full bg-brand pulse-dot"></span>
+                AI Listening Engine
+              </span>
+            </div>
+            <p class="text-[11px] text-neu hidden md:block">Social &amp; Digital Media Intelligence</p>
+          </div>
+        </div>
+
+        <!-- Tombol Aksi Header -->
+        <div class="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <button
+            id="btn-open-settings"
+            type="button"
+            title="Pengaturan Gemini API Key (Untuk Browser Standalone)"
+            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-charcoal text-xs font-semibold transition-all"
+          >
+            <span id="api-status-dot" class="w-2 h-2 rounded-full bg-slate-300 shrink-0"></span>
+            <i data-lucide="key-round" class="w-4 h-4 text-neu"></i>
+            <span class="hidden lg:inline">API Key</span>
+          </button>
+
+          <button
+            id="btn-open-history"
+            type="button"
+            title="Riwayat Analisa"
+            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-charcoal text-xs font-semibold transition-all"
+          >
+            <i data-lucide="history" class="w-4 h-4 text-neu"></i>
+            <span class="hidden md:inline">Riwayat</span>
+            <span id="header-history-badge" class="hidden px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-brand-soft text-brand">0</span>
+          </button>
+
+          <button
+            id="btn-copy-summary"
+            type="button"
+            title="Salin Ringkasan Eksekutif"
+            class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-charcoal text-xs font-semibold transition-all"
+          >
+            <i data-lucide="copy" class="w-4 h-4 text-neu"></i>
+            <span class="hidden sm:inline">Salin Ringkasan</span>
+          </button>
+
+          <button
+            id="btn-open-pdf"
+            type="button"
+            class="inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs sm:text-sm font-semibold shadow-sm transition-all active:scale-[0.98]"
+          >
+            <i data-lucide="file-down" class="w-4 h-4"></i>
+            <span class="hidden xs:inline sm:inline">Export PDF</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+      <!-- HERO SEARCH BAR, MODE SWITCHER & KONTEKS KALIBRASI -->
+      <section class="bg-white border border-slate-200 rounded-2xl p-4 sm:p-6 shadow-sm">
+        <!-- Top Row: Mode Switcher & Info Status -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+          <!-- Mode Switcher Pills -->
+          <div class="inline-flex p-1 bg-slate-100 rounded-xl border border-slate-200/80 self-start">
+            <button
+              id="tab-mode-explore"
+              type="button"
+              class="mode-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white text-charcoal shadow-sm flex items-center gap-2"
+            >
+              <i data-lucide="sparkles" class="w-4 h-4 text-brand"></i>
+              <span>Mode Eksplorasi AI</span>
+            </button>
+            <button
+              id="tab-mode-raw"
+              type="button"
+              class="mode-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all text-neu hover:text-charcoal flex items-center gap-2"
+            >
+              <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+              <span>Mode Analisa Data Mentah</span>
+            </button>
+          </div>
+
+          <!-- Indikator Status Analisis Saat Ini -->
+          <div id="active-mode-badge" class="inline-flex items-center gap-2 text-xs text-neu bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-full self-start sm:self-auto">
+            <i data-lucide="radar" class="w-3.5 h-3.5 text-brand shrink-0"></i>
+            <span id="active-mode-label" class="truncate max-w-[260px] sm:max-w-xs">Menampilkan Sample Pra-Muat: Harga Kopi Lokal</span>
+          </div>
+        </div>
+
+        <!-- PANEL MODE A: EKSPLORASI AI -->
+        <div id="panel-mode-explore" class="space-y-3">
+          <div class="flex flex-col sm:flex-row gap-2.5">
+            <div class="relative flex-1">
+              <i data-lucide="search" class="w-5 h-5 text-neu absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+              <input
+                id="input-keyword"
+                type="text"
+                value="Harga Kopi Lokal"
+                placeholder='Ketik keyword atau topik... contoh: "Harga Kopi Lokal" OR "Kedai Kopi"'
+                class="w-full pl-11 pr-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-sm sm:text-base font-medium text-charcoal placeholder:text-slate-400 transition-all"
+              />
+            </div>
+            <button
+              id="btn-run-explore"
+              type="button"
+              class="px-6 py-3.5 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold text-sm sm:text-base shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] shrink-0"
+            >
+              <i data-lucide="audio-waveform" class="w-4 h-4"></i>
+              <span>Mulai Dengerin</span>
+            </button>
+          </div>
+
+          <!-- Quick Example Chips + Live Web Grounding Toggle -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-xs font-medium text-neu">Topik cepat:</span>
+              <button type="button" data-preset="kopi" class="preset-chip px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-white hover:border-brand hover:text-brand transition-all">
+                Harga Kopi Lokal
+              </button>
+              <button type="button" data-preset="whoosh" class="preset-chip px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-white hover:border-brand hover:text-brand transition-all">
+                Kereta Cepat Whoosh
+              </button>
+              <button type="button" data-preset="ppn" class="preset-chip px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-white hover:border-brand hover:text-brand transition-all">
+                PPN 12%
+              </button>
+              <button type="button" data-preset="ev" class="preset-chip px-3 py-1.5 rounded-full text-xs font-medium border border-slate-200 bg-white hover:border-brand hover:text-brand transition-all">
+                Mobil Listrik di Indonesia
+              </button>
+            </div>
+
+            <!-- Live Google Search Grounding Toggle -->
+            <label class="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer self-start md:self-auto hover:border-brand/60 transition-colors">
+              <input id="toggle-web-grounding" type="checkbox" checked class="accent-[#F97316] w-3.5 h-3.5 rounded" />
+              <span class="text-xs font-semibold text-charcoal flex items-center gap-1.5">
+                <i data-lucide="globe" class="w-3.5 h-3.5 text-brand"></i>
+                Grounding Web Real-Time (Google Search)
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- PANEL MODE B: ANALISA DATA MENTAH -->
+        <div id="panel-mode-raw" class="hidden space-y-3">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3">
+            <div class="md:col-span-6">
+              <label for="input-raw-topic" class="block text-xs font-semibold text-charcoal mb-1.5">Nama Topik / Keyword Referensi</label>
+              <input
+                id="input-raw-topic"
+                type="text"
+                value="Layanan Mobile Banking Bank X"
+                placeholder="Contoh: Peluncuran Produk X atau Gangguan Aplikasi Y"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-sm font-medium text-charcoal"
+              />
+            </div>
+            <div class="md:col-span-3 flex items-end">
+              <label
+                for="input-file-upload"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-dashed border-slate-300 bg-white hover:border-brand hover:bg-brand-soft/40 text-charcoal text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+              >
+                <i data-lucide="upload" class="w-4 h-4 text-brand"></i>
+                <span>Unggah CSV / TXT</span>
+                <input id="input-file-upload" type="file" accept=".csv,.txt,.tsv" class="hidden" />
+              </label>
+            </div>
+            <div class="md:col-span-3 flex items-end">
+              <button
+                id="btn-load-raw-sample"
+                type="button"
+                class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-charcoal text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+              >
+                <i data-lucide="clipboard-list" class="w-4 h-4 text-brand"></i>
+                <span>Muat 12 Contoh Komentar</span>
+              </button>
+            </div>
+          </div>
+
+          <div id="raw-dropzone" class="rounded-xl transition-colors">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+              <label for="input-raw-mentions" class="text-xs font-semibold text-charcoal">
+                Tempel atau Seret File Data Mentah
+                <span class="font-normal text-neu">(1 baris = 1 mention, mendukung <code class="bg-slate-100 px-1.5 py-0.5 rounded text-charcoal">Platform | Akun | Teks</code> atau format CSV)</span>
+              </label>
+              <span id="raw-line-count" class="text-xs font-semibold text-neu tabular-nums">0 baris</span>
+            </div>
+            <textarea
+              id="input-raw-mentions"
+              rows="5"
+              placeholder="X | @budi_jkt | Keren banget aplikasinya, mau bayar QRIS malah loading 10 menit sampe kasirnya bengong&#10;TikTok | @nina.review | Jujur UI barunya makin bersih dan transfer antar bank cepat banget sih!&#10;Portal Berita Online | KompasTekno | Bank X mencatat lonjakan transaksi digital sebesar 24% pada kuartal ini."
+              class="w-full p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-xs sm:text-sm text-charcoal font-mono leading-relaxed custom-scroll"
+            ></textarea>
+          </div>
+
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+            <p class="text-xs text-neu flex items-center gap-1.5">
+              <i data-lucide="shield-check" class="w-4 h-4 text-pos shrink-0"></i>
+              <span>AI mengklasifikasi tiap baris; seluruh angka KPI, rasio &amp; NSS dihitung deterministik via JavaScript.</span>
+            </p>
+            <button
+              id="btn-run-raw"
+              type="button"
+              class="px-6 py-3 rounded-xl bg-brand hover:bg-brand-hover text-white font-semibold text-sm shadow-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] shrink-0"
+            >
+              <i data-lucide="cpu" class="w-4 h-4"></i>
+              <span>Analisa Data Mentah</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- COLLAPSIBLE DRAWER: ATUR KONTEKS & KALIBRASI SENTIMEN -->
+        <div class="mt-4 pt-4 border-t border-slate-100">
+          <button
+            id="btn-toggle-calibration"
+            type="button"
+            aria-expanded="false"
+            class="w-full flex items-center justify-between gap-3 py-1.5 text-left group"
+          >
+            <div class="flex items-center gap-2.5 flex-wrap">
+              <span class="w-7 h-7 rounded-lg bg-slate-100 group-hover:bg-brand-soft flex items-center justify-center transition-colors">
+                <i data-lucide="sliders-horizontal" class="w-4 h-4 text-charcoal group-hover:text-brand transition-colors"></i>
+              </span>
+              <span class="text-sm font-semibold text-charcoal">Atur Konteks &amp; Kalibrasi Sentimen</span>
+              <span class="text-[11px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-neu">
+                Grounding Context &bull; Rubrik Pos/Neg/Net &bull; Sarkasme ID
+              </span>
+            </div>
+            <div class="flex items-center gap-2 text-xs font-medium text-brand shrink-0">
+              <span id="calibration-toggle-text" class="hidden sm:inline">Buka Pengaturan</span>
+              <i id="calibration-chevron" data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200"></i>
+            </div>
+          </button>
+
+          <!-- Isi Accordion Pengaturan -->
+          <div id="calibration-drawer" class="hidden mt-4 pt-4 border-t border-slate-100 space-y-5 animate-fade-up">
+            <!-- Baris 1: Grounding Context + Filter Waktu & Sarkasme -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div class="lg:col-span-2">
+                <label for="input-context" class="block text-xs font-semibold text-charcoal mb-1.5">
+                  Deskripsi Topik / Grounding Context
+                </label>
+                <textarea
+                  id="input-context"
+                  rows="3"
+                  class="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/60 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-xs sm:text-sm text-charcoal leading-relaxed"
+                >Fokus pada persepsi konsumen terhadap kenaikan harga kopi susu kekinian, kualitas biji kopi lokal, dan nilai ekonomis kedai kopi di kota besar Indonesia. Abaikan konten resep membuat kopi rumahan dan iklan lowongan kerja barista.</textarea>
+              </div>
+
+              <div class="space-y-3 bg-slate-50 border border-slate-200/80 rounded-xl p-3.5">
+                <div>
+                  <label for="select-timeframe" class="block text-xs font-semibold text-charcoal mb-1.5">Rentang Waktu</label>
+                  <select
+                    id="select-timeframe"
+                    class="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs sm:text-sm font-medium text-charcoal focus:border-brand outline-none"
+                  >
+                    <option value="24 Jam Terakhir">24 Jam Terakhir</option>
+                    <option value="7 Hari Terakhir" selected>7 Hari Terakhir</option>
+                    <option value="30 Hari Terakhir">30 Hari Terakhir</option>
+                  </select>
+                </div>
+
+                <!-- Toggle Sarkasme -->
+                <div class="flex items-center justify-between gap-3 pt-1">
+                  <div>
+                    <p class="text-xs font-semibold text-charcoal">Deteksi Sarkasme &amp; Slang ID</p>
+                    <p class="text-[11px] text-neu">Deteksi sindiran halus netizen</p>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input id="toggle-sarcasm" type="checkbox" checked class="sr-only peer" />
+                    <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:bg-brand after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Baris 2: Kalibrasi Pemahaman Sentimen (3 Kotak Terpisah) -->
+            <div>
+              <p class="text-xs font-semibold text-charcoal mb-2">Kalibrasi Pemahaman Sentimen (Rubrik Khusus AI)</p>
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <!-- Positif -->
+                <div class="rounded-xl border border-emerald-200 bg-pos-soft/40 p-3">
+                  <label for="rubric-pos" class="flex items-center gap-1.5 text-xs font-bold text-pos-dark mb-1.5">
+                    <span class="w-2 h-2 rounded-full bg-pos"></span>
+                    Definisi POSITIF
+                  </label>
+                  <textarea
+                    id="rubric-pos"
+                    rows="2"
+                    class="w-full p-2 rounded-lg border border-emerald-200/80 bg-white text-xs text-charcoal focus:border-pos outline-none"
+                  >Pujian terhadap rasa/kualitas kopi lokal, dukungan ke petani/UMKM, harga dianggap sepadan (worth it), atau apresiasi inovasi menu.</textarea>
+                </div>
+
+                <!-- Negatif -->
+                <div class="rounded-xl border border-red-200 bg-neg-soft/40 p-3">
+                  <label for="rubric-neg" class="flex items-center gap-1.5 text-xs font-bold text-neg-dark mb-1.5">
+                    <span class="w-2 h-2 rounded-full bg-neg"></span>
+                    Definisi NEGATIF
+                  </label>
+                  <textarea
+                    id="rubric-neg"
+                    rows="2"
+                    class="w-full p-2 rounded-lg border border-red-200/80 bg-white text-xs text-charcoal focus:border-neg outline-none"
+                  >Keluhan harga terlalu mahal, porsi mengecil (shrinkflation), rasa terlalu manis/encer, layanan buruk, termasuk sindiran sarkasme soal harga.</textarea>
+                </div>
+
+                <!-- Netral -->
+                <div class="rounded-xl border border-slate-200 bg-neu-soft/60 p-3">
+                  <label for="rubric-neu" class="flex items-center gap-1.5 text-xs font-bold text-neu mb-1.5">
+                    <span class="w-2 h-2 rounded-full bg-neu"></span>
+                    Definisi NETRAL
+                  </label>
+                  <textarea
+                    id="rubric-neu"
+                    rows="2"
+                    class="w-full p-2 rounded-lg border border-slate-200 bg-white text-xs text-charcoal focus:border-neu outline-none"
+                  >Berita faktual data harga biji kopi/ekspor, pertanyaan murni lokasi kedai, atau ulasan objektif tanpa kecenderungan memuji/mengeluh.</textarea>
+                </div>
+              </div>
+            </div>
+
+            <!-- Baris 3: Filter Sumber Kanal -->
+            <div>
+              <p class="text-xs font-semibold text-charcoal mb-2">Filter Sumber Kanal (Social Media &amp; Digital Media)</p>
+              <div class="flex flex-wrap gap-2" id="source-filters">
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="X" checked class="source-cb accent-[#F97316]" /> X / Twitter
+                </label>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="TikTok" checked class="source-cb accent-[#F97316]" /> TikTok
+                </label>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="Instagram" checked class="source-cb accent-[#F97316]" /> Instagram
+                </label>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="YouTube" checked class="source-cb accent-[#F97316]" /> YouTube
+                </label>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="Threads" checked class="source-cb accent-[#F97316]" /> Threads
+                </label>
+                <span class="hidden sm:inline-block w-px h-6 bg-slate-200 mx-1 self-center"></span>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="Portal Berita Online" checked class="source-cb accent-[#F97316]" /> Portal Berita Online
+                </label>
+                <label class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium text-charcoal cursor-pointer hover:border-brand">
+                  <input type="checkbox" value="Forum/Blog" checked class="source-cb accent-[#F97316]" /> Forum / Blog
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- BANNER TOPIK AKTIF & CITATION SOURCES -->
+      <div class="space-y-2.5 px-1">
+        <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+          <div>
+            <div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-brand uppercase tracking-wider mb-1">
+              <span id="dash-mode-tag">HASIL ANALISA LISTENING</span>
+              <span class="text-slate-300">&bull;</span>
+              <span id="dash-timeframe-tag" class="text-neu">7 Hari Terakhir</span>
+              <span id="dash-grounded-pill" class="hidden inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pos-soft text-pos-dark border border-emerald-200 normal-case">
+                <i data-lucide="globe" class="w-3 h-3"></i> Terverifikasi Google Search
+              </span>
+            </div>
+            <h1 id="dash-topic-title" class="font-display font-extrabold text-2xl sm:text-3xl text-charcoal tracking-tight">
+              Harga Kopi Lokal
+            </h1>
+          </div>
+          <div class="flex items-center gap-3">
+            <button id="btn-export-csv" type="button" class="inline-flex items-center gap-1.5 text-xs font-semibold text-neu hover:text-charcoal transition-colors">
+              <i data-lucide="table-2" class="w-3.5 h-3.5"></i>
+              <span>Unduh CSV Verbatim</span>
+            </button>
+            <span class="text-slate-300">|</span>
+            <p id="dash-generated-at" class="text-xs text-neu tabular-nums">Diperbarui: Sample Pra-Muat</p>
+          </div>
+        </div>
+
+        <!-- Baris Referensi Web Real-Time (Tampil bila Grounding Google Search aktif) -->
+        <div id="web-sources-bar" class="hidden bg-white border border-slate-200 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-2">
+          <span class="text-[11px] font-bold text-charcoal flex items-center gap-1.5 shrink-0">
+            <i data-lucide="link-2" class="w-3.5 h-3.5 text-brand"></i>
+            Referensi Web Real-Time:
+          </span>
+          <div id="web-sources-list" class="flex flex-wrap gap-1.5"></div>
+        </div>
+      </div>
+
+      <!-- ROW 1: 4 HERO KPI CARDS -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <!-- KPI 1: Total Percakapan -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-neu">Total Percakapan</span>
+            <span class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-charcoal">
+              <i data-lucide="message-square-text" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div>
+            <div id="kpi-total-mentions" class="font-display font-extrabold text-3xl sm:text-4xl text-charcoal tabular-nums tracking-tight">14.820</div>
+            <p class="text-xs text-neu mt-1">Total mentions relevan</p>
+          </div>
+          <div class="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-2 gap-2">
+            <div>
+              <p class="text-[11px] text-neu">Unique Authors</p>
+              <p id="kpi-unique-authors" class="text-sm font-bold text-charcoal tabular-nums">9.410</p>
+            </div>
+            <div>
+              <p class="text-[11px] text-neu">Total Engagement</p>
+              <p id="kpi-total-engagement" class="text-sm font-bold text-charcoal tabular-nums">418,5K</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 2: Net Sentiment Score (NSS) -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-neu">Net Sentiment (NSS)</span>
+            <span id="kpi-nss-badge" class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-neg-soft text-neg-dark">Cenderung Kritis</span>
+          </div>
+          <div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpi-nss-score" class="font-display font-extrabold text-3xl sm:text-4xl text-neg tabular-nums tracking-tight">-14</span>
+              <span class="text-xs font-medium text-neu tabular-nums">/ skala -100 s/d +100</span>
+            </div>
+            <p class="text-[11px] text-neu mt-1">Rumus: %Positif &minus; %Negatif</p>
+          </div>
+          <!-- Progress Bar Semantik NSS -->
+          <div class="mt-4 pt-3.5 border-t border-slate-100">
+            <div class="relative h-2.5 w-full rounded-full bg-gradient-to-r from-[#EF4444] via-[#CBD5E1] to-[#10B981]">
+              <div id="kpi-nss-marker" class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3.5 h-3.5 rounded-full bg-charcoal border-2 border-white shadow-md transition-all duration-500" style="left: 43%;"></div>
+            </div>
+            <div class="flex justify-between text-[10px] font-semibold text-neu tabular-nums mt-1.5">
+              <span>-100</span>
+              <span>0</span>
+              <span>+100</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 3: Kanal Teraktif -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-neu">Kanal Teraktif</span>
+            <span class="w-8 h-8 rounded-xl bg-brand-soft flex items-center justify-center text-brand">
+              <i data-lucide="share-2" class="w-4 h-4"></i>
+            </span>
+          </div>
+          <div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpi-top-platform" class="font-display font-extrabold text-2xl sm:text-3xl text-charcoal tracking-tight">X / Twitter</span>
+              <span id="kpi-top-platform-pct" class="text-lg font-extrabold text-brand tabular-nums">38%</span>
+            </div>
+            <p class="text-xs text-neu mt-1">Dominasi percakapan tertinggi</p>
+          </div>
+          <div class="mt-4 pt-3.5 border-t border-slate-100">
+            <div class="flex justify-between text-[11px] font-semibold mb-1.5 tabular-nums">
+              <span class="text-charcoal">Social <span id="kpi-social-pct" class="text-brand">84%</span></span>
+              <span class="text-neu">Digital Media <span id="kpi-digital-pct" class="text-charcoal">16%</span></span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-200 overflow-hidden flex">
+              <div id="kpi-social-bar" class="bg-charcoal h-full transition-all duration-500" style="width: 84%"></div>
+              <div id="kpi-digital-bar" class="bg-brand h-full transition-all duration-500" style="width: 16%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KPI 4: Tingkat Sarkasme & Kecepatan Tren -->
+        <div class="bg-white border border-slate-200 rounded-2xl p-5 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-semibold uppercase tracking-wider text-neu">Sarkasme &amp; Tren</span>
+            <span id="kpi-trend-badge" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-brand-soft text-brand">
+              <i data-lucide="trending-up" class="w-3 h-3"></i>
+              <span id="kpi-trend-status">Meningkat</span>
+            </span>
+          </div>
+          <div>
+            <div class="flex items-baseline gap-2">
+              <span id="kpi-sarcasm-pct" class="font-display font-extrabold text-3xl sm:text-4xl text-charcoal tabular-nums tracking-tight">19%</span>
+              <span class="text-xs font-medium text-neg">indikasi sarkasme</span>
+            </div>
+            <p id="kpi-sarcasm-note" class="text-xs text-neu mt-1">Terkalibrasi pada slang netizen ID</p>
+          </div>
+          <div class="mt-4 pt-3.5 border-t border-slate-100 flex items-center justify-between">
+            <span class="text-[11px] text-neu">Kecepatan Tren</span>
+            <span id="kpi-velocity-label" class="text-xs font-bold text-charcoal tabular-nums">+42% vs periode lalu</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROW 2: VISUAL BREAKDOWN (DONUT SENTIMEN & HORIZONTAL BAR PLATFORM) -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Kartu Respon Audiens (Donut Chart) -->
+        <div class="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 flex flex-col justify-between shadow-sm">
+          <div class="flex items-start justify-between gap-2 mb-4">
+            <div>
+              <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Respon Digital Audiens</h2>
+              <p class="text-xs text-neu">Distribusi sentimen sesuai rubrik kalibrasi</p>
+            </div>
+            <span class="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-slate-100 text-neu">3-Tier Sentimen</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center my-auto">
+            <div class="relative h-52 w-full flex items-center justify-center">
+              <canvas id="chart-sentiment"></canvas>
+              <!-- Angka tengah donut -->
+              <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span class="text-[11px] font-semibold text-neu uppercase">Dominan</span>
+                <span id="donut-center-label" class="font-display font-extrabold text-xl text-neg">Negatif</span>
+                <span id="donut-center-pct" class="text-xs font-bold text-charcoal tabular-nums">45%</span>
+              </div>
+            </div>
+
+            <!-- Breakdown Persentase Besar -->
+            <div class="space-y-3">
+              <div class="p-3 rounded-xl bg-pos-soft/60 border border-emerald-200/70 flex items-center justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-pos"></span>
+                    <span class="text-xs font-bold text-pos-dark">Positif</span>
+                  </div>
+                  <p id="sent-pos-count" class="text-[11px] text-neu tabular-nums mt-0.5">4.594 mentions</p>
+                </div>
+                <span id="sent-pos-pct" class="font-display font-extrabold text-2xl text-pos-dark tabular-nums">31%</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-neu-soft/70 border border-slate-200 flex items-center justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-neu"></span>
+                    <span class="text-xs font-bold text-slate-700">Netral</span>
+                  </div>
+                  <p id="sent-neu-count" class="text-[11px] text-neu tabular-nums mt-0.5">3.557 mentions</p>
+                </div>
+                <span id="sent-neu-pct" class="font-display font-extrabold text-2xl text-slate-700 tabular-nums">24%</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-neg-soft/60 border border-red-200/70 flex items-center justify-between">
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-neg"></span>
+                    <span class="text-xs font-bold text-neg-dark">Negatif</span>
+                  </div>
+                  <p id="sent-neg-count" class="text-[11px] text-neu tabular-nums mt-0.5">6.669 mentions</p>
+                </div>
+                <span id="sent-neg-pct" class="font-display font-extrabold text-2xl text-neg-dark tabular-nums">45%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kartu Sebaran Platform (Horizontal Bar Chart) -->
+        <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 flex flex-col shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Sebaran Platform</h2>
+              <p class="text-xs text-neu">Distribusi Social Media vs. Digital Media</p>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] font-semibold">
+              <span class="inline-flex items-center gap-1.5 text-charcoal">
+                <span class="w-2.5 h-2.5 rounded-sm bg-charcoal"></span> Social Media
+              </span>
+              <span class="inline-flex items-center gap-1.5 text-brand">
+                <span class="w-2.5 h-2.5 rounded-sm bg-brand"></span> Digital Media
+              </span>
+            </div>
+          </div>
+
+          <div class="relative flex-1 min-h-[240px] w-full">
+            <canvas id="chart-platforms"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROW 3: TIMELINE PERCAKAPAN & ORIGINATOR VS CATALYST -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Grafik Garis / Area Tren Volume Percakapan -->
+        <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 flex flex-col shadow-sm">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Timeline Volume Percakapan</h2>
+              <p class="text-xs text-neu">Pelacakan lonjakan percakapan dari titik pemicu awal hingga puncak viral</p>
+            </div>
+            <div class="flex items-center gap-3 text-[11px] font-semibold">
+              <span class="inline-flex items-center gap-1 text-charcoal">
+                <span class="w-2.5 h-2.5 rounded-full bg-charcoal"></span> Pemicu Awal
+              </span>
+              <span class="inline-flex items-center gap-1 text-brand">
+                <span class="w-2.5 h-2.5 rounded-full bg-brand"></span> Puncak Lonjakan
+              </span>
+            </div>
+          </div>
+
+          <div class="relative flex-1 min-h-[250px] w-full">
+            <canvas id="chart-timeline"></canvas>
+          </div>
+        </div>
+
+        <!-- 2 Kartu Originator vs. Catalyst -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+          <!-- First Poster (Pemicu Awal) -->
+          <div class="bg-white border border-slate-200 rounded-2xl p-5 flex-1 shadow-sm">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg bg-charcoal text-white flex items-center justify-center">
+                  <i data-lucide="flag" class="w-3.5 h-3.5"></i>
+                </span>
+                <div>
+                  <h3 class="font-display font-bold text-sm text-charcoal">First Poster (Pemicu Awal)</h3>
+                  <p class="text-[11px] text-neu">Akun/media pertama yang mengangkat isu</p>
+                </div>
+              </div>
+              <span id="orig-category" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-charcoal uppercase">Menfess</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 mb-2.5">
+              <span id="orig-account" class="font-bold text-sm text-charcoal">@convomfs</span>
+              <span id="orig-platform" class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-700">X / Twitter</span>
+              <span id="orig-time" class="text-[11px] text-neu tabular-nums ml-auto">Senin, 09:15 WIB</span>
+            </div>
+
+            <blockquote id="orig-quote" class="text-xs text-slate-600 bg-slate-50 border-l-2 border-charcoal pl-3 py-2 rounded-r-lg italic leading-relaxed">
+              "Guys, cuma perasaan aku doang atau harga kopi susu lokal sekarang rata-rata udah naik jadi 28-35rb ya? Padahal tahun lalu masih banyak yang 18rb."
+            </blockquote>
+          </div>
+
+          <!-- Top Catalyst (Penggerak Viral) -->
+          <div class="bg-white border border-brand-border/80 rounded-2xl p-5 flex-1 relative overflow-hidden shadow-sm">
+            <div class="flex items-center justify-between gap-2 mb-3">
+              <div class="flex items-center gap-2">
+                <span class="w-7 h-7 rounded-lg bg-brand text-white flex items-center justify-center">
+                  <i data-lucide="flame" class="w-3.5 h-3.5"></i>
+                </span>
+                <div>
+                  <h3 class="font-display font-bold text-sm text-charcoal">Top Catalyst (Penggerak Viral)</h3>
+                  <p class="text-[11px] text-neu">Akselerator lonjakan engagement terbesar</p>
+                </div>
+              </div>
+              <span id="cat-pattern" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pos-soft text-pos-dark uppercase">Organik</span>
+            </div>
+
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span id="cat-account" class="font-bold text-sm text-charcoal">@kopi.critique</span>
+              <span id="cat-platform" class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-brand-soft text-brand">TikTok</span>
+              <span id="cat-engagement" class="text-xs font-extrabold text-brand tabular-nums ml-auto">84.2K Interaksi</span>
+            </div>
+
+            <p id="cat-reason" class="text-xs text-slate-600 bg-brand-soft/40 border-l-2 border-brand pl-3 py-2 rounded-r-lg leading-relaxed">
+              Video perbandingan takaran es batu vs. volume espresso dan kenaikan harga bahan baku biji robusta memicu 4.100+ komentar pro-kontra dalam 12 jam.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROW 4: BEDAH RESPON AUDIENS (KEY DRIVERS & FEED VERBATIM) -->
+      <section class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- Key Conversation Drivers -->
+        <div class="lg:col-span-5 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
+          <div>
+            <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Key Conversation Drivers</h2>
+            <p class="text-xs text-neu">Isu utama pemicu sentimen positif dan negatif audiens</p>
+          </div>
+
+          <!-- Pemicu Negatif -->
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-xs font-bold text-neg-dark flex items-center gap-1.5 uppercase tracking-wide">
+                <i data-lucide="arrow-down-right" class="w-3.5 h-3.5"></i> Pemicu Sentimen Negatif
+              </span>
+              <span class="text-[11px] text-neu">Porsi dari total negatif</span>
+            </div>
+            <div id="drivers-negative-list" class="space-y-3"></div>
+          </div>
+
+          <hr class="border-slate-100" />
+
+          <!-- Pemicu Positif -->
+          <div>
+            <div class="flex items-center justify-between mb-2.5">
+              <span class="text-xs font-bold text-pos-dark flex items-center gap-1.5 uppercase tracking-wide">
+                <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i> Pemicu Sentimen Positif
+              </span>
+              <span class="text-[11px] text-neu">Porsi dari total positif</span>
+            </div>
+            <div id="drivers-positive-list" class="space-y-3"></div>
+          </div>
+        </div>
+
+        <!-- Feed Percakapan (Verbatim Quotes + Audit Human-in-the-Loop) -->
+        <div class="lg:col-span-7 bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 flex flex-col shadow-sm">
+          <div class="flex flex-col gap-3 mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Feed Percakapan (Verbatim)</h2>
+                <p class="text-xs text-neu">Bukti kutipan &amp; penalaran AI &bull; Klik ikon audit untuk koreksi sentimen manual</p>
+              </div>
+
+              <!-- Search Verbatim -->
+              <div class="relative sm:w-52">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-neu absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                <input
+                  id="input-verbatim-search"
+                  type="text"
+                  placeholder="Cari kutipan/akun..."
+                  class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 focus:bg-white focus:border-brand outline-none text-xs text-charcoal"
+                />
+              </div>
+            </div>
+
+            <!-- Filter Tabs -->
+            <div class="flex flex-wrap gap-1.5" id="verbatim-filter-tabs">
+              <button type="button" data-filter="all" class="v-tab px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-charcoal text-white transition-all">Semua</button>
+              <button type="button" data-filter="positive" class="v-tab px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-neu hover:text-charcoal transition-all">Positif</button>
+              <button type="button" data-filter="negative" class="v-tab px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-neu hover:text-charcoal transition-all">Negatif</button>
+              <button type="button" data-filter="neutral" class="v-tab px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-neu hover:text-charcoal transition-all">Netral</button>
+              <button type="button" data-filter="sarcasm" class="v-tab px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-neu hover:text-charcoal transition-all">Sarkasme</button>
+            </div>
+          </div>
+
+          <div id="verbatim-feed-list" class="space-y-3 max-h-[460px] overflow-y-auto pr-1 custom-scroll"></div>
+        </div>
+      </section>
+
+      <!-- ROW 5: ANALISA STRATEGIS & REKOMENDASI AI -->
+      <section class="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-5 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-brand-soft text-brand flex items-center justify-center">
+              <i data-lucide="lightbulb" class="w-4 h-4"></i>
+            </span>
+            <div>
+              <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Analisa Strategis &amp; Rekomendasi AI</h2>
+              <p class="text-xs text-neu">Sintesis eksekutif siap tindak lanjut berdasarkan temuan data</p>
+            </div>
+          </div>
+          <span class="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-brand-soft text-brand self-start sm:self-auto">Executive Ready</span>
+        </div>
+
+        <!-- Executive Verdict (3 Kalimat beraksen border oranye) -->
+        <div class="bg-brand-soft/40 border border-brand-border/60 border-l-4 border-l-brand rounded-xl p-4 sm:p-5">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-brand mb-1.5">Executive Verdict</p>
+          <p id="ai-executive-verdict" class="text-sm sm:text-[15px] text-charcoal leading-relaxed font-medium"></p>
+        </div>
+
+        <!-- 3 Kartu Rekomendasi Taktis -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <!-- 1. Immediate Action -->
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="w-7 h-7 rounded-lg bg-neg-soft text-neg flex items-center justify-center">
+                <i data-lucide="zap" class="w-4 h-4"></i>
+              </span>
+              <div>
+                <h3 class="font-display font-bold text-sm text-charcoal">Immediate Action</h3>
+                <p class="text-[11px] text-neu">Prioritas 24–48 Jam</p>
+              </div>
+            </div>
+            <ul id="rec-immediate" class="space-y-2 text-xs sm:text-sm text-slate-700 leading-relaxed list-disc pl-4"></ul>
+          </div>
+
+          <!-- 2. Communication & Content Angle -->
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="w-7 h-7 rounded-lg bg-pos-soft text-pos flex items-center justify-center">
+                <i data-lucide="megaphone" class="w-4 h-4"></i>
+              </span>
+              <div>
+                <h3 class="font-display font-bold text-sm text-charcoal">Communication Angle</h3>
+                <p class="text-[11px] text-neu">Narasi &amp; Konten Resonansi</p>
+              </div>
+            </div>
+            <ul id="rec-communication" class="space-y-2 text-xs sm:text-sm text-slate-700 leading-relaxed list-disc pl-4"></ul>
+          </div>
+
+          <!-- 3. Risk & Monitoring Watchlist -->
+          <div class="border border-slate-200 rounded-xl p-4 bg-slate-50/50 flex flex-col">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="w-7 h-7 rounded-lg bg-brand-soft text-brand flex items-center justify-center">
+                <i data-lucide="eye" class="w-4 h-4"></i>
+              </span>
+              <div>
+                <h3 class="font-display font-bold text-sm text-charcoal">Risk &amp; Watchlist</h3>
+                <p class="text-[11px] text-neu">Keyword &amp; Akun Pantauan</p>
+              </div>
+            </div>
+            <ul id="rec-watchlist" class="space-y-2 text-xs sm:text-sm text-slate-700 leading-relaxed list-disc pl-4"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ROW 6: ASISTEN EKSEKUTIF INTERAKTIF ("TANYA DENGERIN AJA") -->
+      <section class="bg-white border border-slate-200 rounded-2xl p-5 sm:p-6 space-y-4 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-charcoal text-brand flex items-center justify-center">
+              <i data-lucide="bot" class="w-4 h-4"></i>
+            </span>
+            <div>
+              <h2 class="font-display font-bold text-base sm:text-lg text-charcoal">Tanya Dengerin Aja (Asisten Strategi)</h2>
+              <p class="text-xs text-neu">Ajukan pertanyaan lanjutan, buat draf klarifikasi PR, atau ide konten berbasis data di atas</p>
+            </div>
+          </div>
+          <button id="btn-clear-chat" type="button" class="text-xs font-semibold text-neu hover:text-charcoal self-start sm:self-auto hidden">
+            Reset Percakapan
+          </button>
+        </div>
+
+        <!-- Prompt Cepat -->
+        <div class="flex flex-wrap gap-2">
+          <button type="button" data-q="Buatkan draf pernyataan klarifikasi PR yang empatik dan profesional (maksimal 2 paragraf) untuk merespons keluhan negatif terbesar pada data ini." class="qa-chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-50 border border-slate-200 hover:border-brand hover:text-brand transition-all">
+            Buat draf klarifikasi PR
+          </button>
+          <button type="button" data-q="Berikan 3 ide hook konten pendek TikTok/Reels untuk membalikkan sentimen negatif menjadi persepsi positif berdasarkan data di atas." class="qa-chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-50 border border-slate-200 hover:border-brand hover:text-brand transition-all">
+            3 ide konten TikTok/Reels
+          </button>
+          <button type="button" data-q="Ringkas temuan paling krusial dalam 4 poin singkat untuk pesan WhatsApp kepada Direksi / Manajemen." class="qa-chip px-3 py-1.5 rounded-full text-xs font-medium bg-slate-50 border border-slate-200 hover:border-brand hover:text-brand transition-all">
+            Ringkasan WA untuk Direksi
+          </button>
+        </div>
+
+        <!-- Thread Jawaban AI -->
+        <div id="qa-thread" class="hidden space-y-3 max-h-96 overflow-y-auto pr-1 custom-scroll"></div>
+
+        <!-- Input Tanya AI -->
+        <div class="flex flex-col sm:flex-row gap-2">
+          <input
+            id="input-qa"
+            type="text"
+            placeholder="Contoh: Strategi apa yang paling tepat untuk meredam komentar sarkasme di X?"
+            class="flex-1 px-4 py-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-xs sm:text-sm text-charcoal"
+          />
+          <button
+            id="btn-send-qa"
+            type="button"
+            class="px-5 py-3 rounded-xl bg-charcoal hover:bg-slate-800 text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-all shrink-0"
+          >
+            <i data-lucide="send" class="w-4 h-4 text-brand"></i>
+            <span>Tanya AI</span>
+          </button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- FOOTER TRANSPARAN -->
+    <footer class="mt-auto border-t border-slate-200 bg-white">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-neu">
+        <div class="flex items-start gap-2 max-w-2xl">
+          <i data-lucide="info" class="w-4 h-4 text-brand shrink-0 mt-0.5"></i>
+          <p>
+            <strong class="text-charcoal">Catatan Transparansi:</strong>
+            <em>Mode Eksplorasi AI</em> menggabungkan Grounding Web Real-Time (Google Search) dengan sintesis lanskap digital Gemini AI. Untuk perhitungan deterministik 100% berbasis data lapangan atau ekspor CSV milik Anda, gunakan <strong>Mode Analisa Data Mentah</strong>.
+          </p>
+        </div>
+        <div class="text-slate-400 font-medium shrink-0">
+          Dengerin Aja &copy; 2026 &bull; Powered by Gemini AI
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL PRATINJAU & EKSPOR PDF REPORT -->
+  <div id="pdf-modal" class="fixed inset-0 z-50 hidden bg-charcoal/60 backdrop-blur-sm overflow-y-auto p-3 sm:p-6">
+    <div id="pdf-modal-wrapper" class="bg-white rounded-2xl max-w-4xl mx-auto shadow-2xl border border-slate-200 overflow-hidden my-4">
+      <!-- Bar Kontrol Modal (Disembunyikan saat Print) -->
+      <div id="pdf-modal-backdrop-controls" class="sticky top-0 z-10 bg-charcoal text-white px-5 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="file-text" class="w-4 h-4 text-brand"></i>
+          <span class="font-display font-bold text-sm">Pratinjau Laporan Eksekutif PDF</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            id="btn-download-pdf"
+            type="button"
+            class="px-3.5 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
+          >
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Unduh PDF (.pdf)</span>
+          </button>
+          <button
+            id="btn-print-pdf"
+            type="button"
+            class="px-3.5 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold flex items-center gap-1.5 transition-all"
+          >
+            <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+            <span>Cetak / Save PDF</span>
+          </button>
+          <button
+            id="btn-close-pdf"
+            type="button"
+            class="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-all"
+            aria-label="Tutup Pratinjau"
+          >
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Konten Laporan Siap Ekspor PDF (Dengan Grafik SVG Vektor Tajam) -->
+      <div id="pdf-report-content" class="p-6 sm:p-10 bg-white text-charcoal space-y-6"></div>
+    </div>
+  </div>
+
+  <!-- MODAL PENGATURAN API KEY (UNTUK MENJALANKAN LANGSUNG DI BROWSER TANPA GEMINI) -->
+  <div id="settings-modal" class="fixed inset-0 z-50 hidden bg-charcoal/60 backdrop-blur-sm items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden animate-fade-up">
+      <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div class="flex items-center gap-2.5">
+          <span class="w-8 h-8 rounded-xl bg-brand-soft text-brand flex items-center justify-center">
+            <i data-lucide="key-round" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h3 class="font-display font-bold text-sm text-charcoal">Pengaturan Browser Standalone</h3>
+            <p class="text-[11px] text-neu">Jalankan langsung di browser Anda tanpa membuka Gemini</p>
+          </div>
+        </div>
+        <button id="btn-close-settings" type="button" class="p-2 rounded-lg hover:bg-slate-100 text-neu hover:text-charcoal" aria-label="Tutup Pengaturan">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 leading-relaxed space-y-1.5">
+          <p><strong class="text-charcoal">Cara Pakai Mandiri:</strong> Masukkan Gemini API Key gratis dari Google AI Studio. Key ini disimpan <strong>100% lokal di browser Anda</strong> (<code>localStorage</code>) dan hanya dikirim langsung ke server Google Gemini API.</p>
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 font-semibold text-brand hover:underline">
+            <span>Dapatkan Gemini API Key gratis di Google AI Studio</span>
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+        </div>
+
+        <div>
+          <label for="input-api-key" class="block text-xs font-semibold text-charcoal mb-1.5">Gemini API Key</label>
+          <div class="relative">
+            <input
+              id="input-api-key"
+              type="password"
+              autocomplete="off"
+              placeholder="AIzaSy..."
+              class="w-full pl-3.5 pr-10 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:border-brand focus:ring-4 focus:ring-brand/10 outline-none text-xs sm:text-sm font-mono text-charcoal"
+            />
+            <button
+              id="btn-toggle-key-visibility"
+              type="button"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-neu hover:text-charcoal"
+              aria-label="Tampilkan atau sembunyikan API Key"
+            >
+              <i data-lucide="eye" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label for="select-ai-model" class="block text-xs font-semibold text-charcoal mb-1.5">Model Gemini</label>
+          <select
+            id="select-ai-model"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-medium text-charcoal focus:border-brand outline-none"
+          >
+            <option value="gemini-2.5-flash">gemini-2.5-flash (Direkomendasikan — Cepat &amp; Stabil untuk Standalone)</option>
+            <option value="gemini-2.5-pro">gemini-2.5-pro (Analisa Strategis Mendalam)</option>
+            <option value="gemini-3-flash-preview">gemini-3-flash-preview (Default Preview Canvas)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
+          <button
+            id="btn-clear-api-key"
+            type="button"
+            class="px-3.5 py-2 rounded-xl text-xs font-semibold text-neg-dark hover:bg-neg-soft transition-colors"
+          >
+            Hapus Key Tersimpan
+          </button>
+          <button
+            id="btn-save-settings"
+            type="button"
+            class="px-5 py-2.5 rounded-xl bg-brand hover:bg-brand-hover text-white text-xs sm:text-sm font-semibold shadow-sm transition-all"
+          >
+            Simpan Pengaturan
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION LOGIC -->
+  <script>
+    /**
+     * ============================================================================
+     * DENGERIN AJA — AI SOCIAL & DIGITAL MEDIA LISTENING ENGINE
+     * Arsitektur:
+     * 1. State Terpusat + LocalStorage History Snapshots
+     * 2. Integrasi Gemini API (gemini-3-flash-preview):
+     *    - Tahap Grounding Web Real-Time via Google Search (`tools: [{ google_search: {} }]`)
+     *    - Tahap Structured JSON Schema Output dengan Exponential Backoff (1s, 2s, 4s)
+     * 3. Mode A (Eksplorasi AI Terkalibrasi) & Mode B (Data Mentah + CSV Upload Deterministik)
+     * 4. Human-in-the-Loop Verbatim Audit (Override Sentimen & Sarkasme -> Recalculate KPI)
+     * 5. Interactive Strategic Q&A Assistant ("Tanya Dengerin Aja")
+     * 6. Chart.js Interaktif + Vector SVG PDF Executive Report + CSV Export
+     * ============================================================================
+     */
+
+    const apiKey = ""; // Disediakan otomatis oleh runtime saat kosong
+    const HISTORY_STORAGE_KEY = "dengerin_aja_snapshots_v1";
+    const SETTINGS_STORAGE_KEY = "dengerin_aja_api_settings_v1";
+
+    // Muat pengaturan API Key & Model untuk penggunaan standalone di browser lokal
+    function loadApiSettings() {
+      try {
+        const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          return {
+            apiKey: (parsed.apiKey || "").trim(),
+            model: parsed.model || "gemini-2.5-flash"
+          };
+        }
+      } catch (e) {}
+      return { apiKey: "", model: "gemini-2.5-flash" };
+    }
+
+    function getGeminiEndpoint() {
+      const settings = loadApiSettings();
+      if (settings.apiKey) {
+        const model = encodeURIComponent(settings.model || "gemini-2.5-flash");
+        return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(settings.apiKey)}`;
+      }
+      // Fallback otomatis saat dijalankan di dalam runtime preview Gemini
+      return `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+    }
+
+    function updateSettingsBadge() {
+      const settings = loadApiSettings();
+      const dot = document.getElementById("api-status-dot");
+      if (!dot) return;
+      if (settings.apiKey) {
+        dot.className = "w-2 h-2 rounded-full bg-pos shrink-0";
+        dot.title = `API Key aktif (${settings.model})`;
+      } else {
+        dot.className = "w-2 h-2 rounded-full bg-amber-400 shrink-0";
+        dot.title = "Belum ada API Key lokal (klik untuk atur di mode browser standalone)";
+      }
+    }
+
+    function openSettingsModal() {
+      const settings = loadApiSettings();
+      document.getElementById("input-api-key").value = settings.apiKey;
+      document.getElementById("select-ai-model").value = settings.model || "gemini-2.5-flash";
+      const modal = document.getElementById("settings-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      lucide.createIcons({ root: modal });
+    }
+
+    function closeSettingsModal() {
+      const modal = document.getElementById("settings-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    // Instance global Chart.js
+    let sentimentChartInstance = null;
+    let platformChartInstance = null;
+    let timelineChartInstance = null;
+
+    // State aplikasi
+    let activeMode = "explore"; // "explore" | "raw"
+    let activeVerbatimFilter = "all";
+    let activeVerbatimSearch = "";
+    let currentData = null;
+
+    // Preset Topik Cepat (Context + Rubrik Sentimen Khusus)
+    const TOPIC_PRESETS = {
+      kopi: {
+        keyword: "Harga Kopi Lokal",
+        context: "Fokus pada persepsi konsumen terhadap kenaikan harga kopi susu kekinian, kualitas biji kopi lokal, dan nilai ekonomis kedai kopi di kota besar Indonesia. Abaikan konten resep membuat kopi rumahan dan iklan lowongan kerja barista.",
+        rubricPos: "Pujian terhadap rasa/kualitas kopi lokal, dukungan ke petani/UMKM, harga dianggap sepadan (worth it), atau apresiasi inovasi menu.",
+        rubricNeg: "Keluhan harga terlalu mahal, porsi mengecil (shrinkflation), rasa terlalu manis/encer, layanan buruk, termasuk sindiran sarkasme soal harga.",
+        rubricNeu: "Berita faktual data harga biji kopi/ekspor, pertanyaan murni lokasi kedai, atau ulasan objektif tanpa kecenderungan memuji/mengeluh."
+      },
+      whoosh: {
+        keyword: "Kereta Cepat Whoosh",
+        context: "Fokus pada pengalaman penumpang, ketepatan waktu, aksesibilitas stasiun (Halim/Padalarang/Tegalluar), tarif tiket dinamis, dan nilai manfaat ekonomi Whoosh. Abaikan berita kecelakaan kereta non-Whoosh.",
+        rubricPos: "Apresiasi kecepatan tempuh Jakarta-Bandung, kenyamanan kabin, kemudahan integrasi feeder/LRT, atau testimoni perjalanan bisnis/wisata.",
+        rubricNeg: "Keluhan harga tiket, jauhnya jarak stasiun ke pusat kota Bandung, kendala aplikasi/pemesanan, atau kritik beban utang/subsidi.",
+        rubricNeu: "Informasi jadwal keberangkatan, data jumlah penumpang resmi KCIC, atau pertanyaan prosedur pembelian tiket."
+      },
+      ppn: {
+        keyword: "PPN 12%",
+        context: "Fokus pada dampak kebijakan PPN 12% terhadap daya beli masyarakat kelas menengah, harga barang/jasa digital, UMKM, serta komunikasi kebijakan pemerintah. Abaikan konten hiburan/meme tanpa substansi kebijakan.",
+        rubricPos: "Dukungan terhadap penargetan PPN khusus barang mewah, apresiasi insentif/stimulus bagi pekerja & UMKM, atau penjelasan manfaat fiskal.",
+        rubricNeg: "Kekhawatiran kenaikan biaya hidup, kritik kurangnya sosialisasi, keluhan tarif layanan digital/streaming, atau sindiran sarkastik ke pembuat kebijakan.",
+        rubricNeu: "Daftar resmi barang kena pajak dan pengecualian, kutipan regulasi Kemenkeu, atau pertanyaan cara menghitung PPN pada transaksi bisnis."
+      },
+      ev: {
+        keyword: "Mobil Listrik di Indonesia",
+        context: "Fokus pada adopsi mobil listrik (EV) di Indonesia, kesiapan infrastruktur SPKLU, harga jual kembali (resale value), insentif pajak, dan persaingan brand China vs Jepang. Abaikan iklan dealer atau jual beli mobil bekas konvensional.",
+        rubricPos: "Pujian hemat biaya operasional, bebas ganjil-genap, fitur canggih dengan harga kompetitif, atau pengalaman perjalanan mudik yang lancar dengan EV.",
+        rubricNeg: "Kekhawatiran antrean SPKLU, depresiasi harga jual kembali, kekhawatiran garansi baterai/banjir, atau keluhan purna jual suku cadang.",
+        rubricNeu: "Data penjualan wholesales Gaikindo, spesifikasi teknis peluncuran model baru, atau pertanyaan lokasi SPKLU di tol Trans Jawa."
+      }
+    };
+
+    // Contoh Data Mentah untuk pengujian cepat Mode B
+    const SAMPLE_RAW_MENTIONS = [
+      "X | @dina_pratiwi | Aplikasinya keren banget sih, tiap tanggal gajian pas mau bayar tagihan selalu maintenance 2 jam, bikin sabar melatih iman.",
+      "TikTok | @fajar.tech | Baru update versi terbaru Bank X, tampilan dashboard-nya jauh lebih bersih dan transfer BI-Fast sekarang masuk dalam 2 detik!",
+      "Instagram | @rizky_wibowo | Min ini kenapa QRIS di merchant minimarket gagal terus dari pagi? Saldo kepotong tapi transaksi gagal, tolong cek DM.",
+      "Portal Berita Online | Kontan Digital | Bank X melaporkan pertumbuhan volume transaksi mobile banking sebesar 27% secara tahunan dengan 14 juta pengguna aktif.",
+      "X | @nadia_surya | Jujur CS via live chat di aplikasi Bank X responsif banget, kendala kartu ketelan langsung dibantu blokir dan ganti gratis.",
+      "Threads | @eko_santoso | Hebat ya biaya admin naik tapi fitur mutasi rekening bulan lalu masih sering blank putih.",
+      "YouTube | @ReviewFinansialID | Secara fitur investasi reksadana dan deposito di Bank X sangat lengkap untuk pemula, bunganya juga kompetitif.",
+      "Forum/Blog | Kaskus Finansial | Ada yang tahu batas maksimal transfer harian untuk akun reguler Bank X setelah kebijakan baru berlaku?",
+      "X | @tio_maulana | Sudah 3 hari lapor saldo QRIS terpotong belum ada pengembalian dana, nomor tiket cuma dibalas template bot terus.",
+      "TikTok | @siska.hemat | Suka banget fitur kantong tabungan otomatis di Bank X, ngebantu banget misahin budget jajan sama dana darurat!",
+      "Portal Berita Online | Detik Finance | Gangguan singkat sempat dialami sebagian nasabah Bank X pada jam sibuk siang tadi dan kini layanan diklaim normal kembali.",
+      "X | @raka_pratama | Wah mantap nih aplikasi perbankan rasa game gacha, buka halaman login aja harus nebak berhasil masuk atau force close."
+    ].join("\n");
+
+    // Data Pra-Muat (Pre-loaded Rich Sample Dashboard)
+    const PRELOADED_SAMPLE_DATA = {
+      id: "sample-kopi",
+      keyword: "Harga Kopi Lokal",
+      mode: "sample",
+      timeframe: "7 Hari Terakhir",
+      generatedAt: "Sample Pra-Muat • Siap Dieksplorasi",
+      contextUsed: TOPIC_PRESETS.kopi.context,
+      rubricUsed: {
+        positive: TOPIC_PRESETS.kopi.rubricPos,
+        negative: TOPIC_PRESETS.kopi.rubricNeg,
+        neutral: TOPIC_PRESETS.kopi.rubricNeu
+      },
+      sarcasmEnabled: true,
+      webGrounded: false,
+      webSources: [],
+      kpis: {
+        totalMentions: 14820,
+        uniqueAuthors: 9410,
+        totalEngagement: 418500,
+        positiveCount: 4594,
+        neutralCount: 3557,
+        negativeCount: 6669,
+        positivePct: 31,
+        neutralPct: 24,
+        negativePct: 45,
+        nss: -14,
+        sarcasmPct: 19,
+        trendStatus: "Meningkat",
+        velocityLabel: "+42% vs 7 hari lalu"
+      },
+      platforms: [
+        { name: "X", type: "social", count: 5632, pct: 38 },
+        { name: "TikTok", type: "social", count: 4150, pct: 28 },
+        { name: "Instagram", type: "social", count: 1630, pct: 11 },
+        { name: "Portal Berita Online", type: "digital", count: 1630, pct: 11 },
+        { name: "Threads", type: "social", count: 741, pct: 5 },
+        { name: "Forum/Blog", type: "digital", count: 741, pct: 5 },
+        { name: "YouTube", type: "social", count: 296, pct: 2 }
+      ],
+      timeline: {
+        labels: ["Sen", "Sel", "Rab", "Kam", "Jum", "Sab", "Min"],
+        values: [890, 1120, 1650, 3940, 3180, 2260, 1780],
+        originIndex: 0,
+        peakIndex: 3
+      },
+      originator: {
+        account: "@convomfs",
+        platform: "X",
+        category: "Menfess",
+        timestamp: "Senin, 09:15 WIB",
+        quote: "Guys, cuma perasaan aku doang atau harga kopi susu lokal sekarang rata-rata udah naik jadi 28-35rb ya? Padahal tahun lalu masih banyak yang 18rb."
+      },
+      catalyst: {
+        account: "@kopi.critique",
+        platform: "TikTok",
+        engagement: "84.2K Interaksi",
+        pattern: "Organik",
+        reason: "Video ulasan takaran es batu vs. volume espresso serta perbandingan harga biji kopi robusta memicu 4.100+ komentar perdebatan kelas pekerja urban dalam 12 jam."
+      },
+      drivers: {
+        negative: [
+          { label: "Kenaikan harga tidak sebanding dengan porsi (es batu dominan)", pct: 44 },
+          { label: "Rasa dinilai terlalu manis / kualitas espresso menurun", pct: 31 },
+          { label: "Biaya ongkir & platform pesan-antar makin membebani", pct: 25 }
+        ],
+        positive: [
+          { label: "Apresiasi kualitas biji kopi lokal (Gayo, Toraja, Flores)", pct: 46 },
+          { label: "Dukungan terhadap kedai kopi independen & petani lokal", pct: 33 },
+          { label: "Inovasi menu seasonal & konsistensi kedai langganan", pct: 21 }
+        ]
+      },
+      verbatims: [
+        {
+          id: "v-1",
+          platform: "X",
+          account: "@arief_wfh",
+          text: "Murah banget kok kopi susu lokal sekarang, segelas ukuran reguler cuma seharga makan siang 3 hari di warteg 🙏",
+          sentiment: "negative",
+          isSarcasm: true,
+          edited: false,
+          reasoning: "Terdeteksi sarkasme halus membandingkan harga kopi dengan biaya makan; masuk Negatif sesuai rubrik keluhan harga."
+        },
+        {
+          id: "v-2",
+          platform: "TikTok",
+          account: "@nadya.seduh",
+          text: "Buat yang protes harga naik, harga green bean robusta memang lagi rekor tertinggi global guys. Selama rasanya konsisten dan bukan es batu doang, 25rb masih worth it kok.",
+          sentiment: "positive",
+          isSarcasm: false,
+          edited: false,
+          reasoning: "Menunjukkan pemahaman biaya bahan baku dan menilai harga sepadan dengan kualitas (sesuai rubrik Positif)."
+        },
+        {
+          id: "v-3",
+          platform: "Portal Berita Online",
+          account: "Bisnis Indonesia",
+          text: "Asosiasi Eksportir Kopi mencatat harga biji kopi robusta domestik naik 34% secara tahunan dipicu anomali cuaca di sentra produksi Sumatera Selatan dan Lampung.",
+          sentiment: "neutral",
+          isSarcasm: false,
+          edited: false,
+          reasoning: "Berita faktual mengenai data kenaikan harga komoditas tanpa opini subjektif (sesuai rubrik Netral)."
+        },
+        {
+          id: "v-4",
+          platform: "Instagram",
+          account: "@bima_kurniawan",
+          text: "Mending beli di kedai slow bar lokal dekat rumah, 28rb dapet single origin Flores yang proper daripada jaringan besar isinya gula aren sama es batu 70%.",
+          sentiment: "negative",
+          isSarcasm: false,
+          edited: false,
+          reasoning: "Mengkritik rasio es batu dan dominasi gula pada jaringan kedai kopi besar (shrinkflation/kualitas rasa)."
+        },
+        {
+          id: "v-5",
+          platform: "Threads",
+          account: "@tania.roastery",
+          text: "Bangga banget lihat biji kopi lokal Temanggung dan Kintamani makin sering jadi menu utama di coffee shop anak muda. Petani kita makin sejahtera!",
+          sentiment: "positive",
+          isSarcasm: false,
+          edited: false,
+          reasoning: "Apresiasi eksplisit terhadap kualitas biji lokal dan dukungan bagi petani UMKM."
+        },
+        {
+          id: "v-6",
+          platform: "X",
+          account: "@rendy_komuter",
+          text: "Keren sih inovasi shrinkflation kedai kopi zaman now: gelasnya makin ramping biar gampang digenggam, harganya makin gemuk biar dompet makin ringan.",
+          sentiment: "negative",
+          isSarcasm: true,
+          edited: false,
+          reasoning: "Menggunakan pujian ironis ('keren sih') untuk menyindir porsi mengecil dan harga naik; dikalibrasi sebagai Negatif + Sarkasme."
+        },
+        {
+          id: "v-7",
+          platform: "Forum/Blog",
+          account: "Komunitas Manual Brew ID",
+          text: "Ada rekomendasi roastery lokal di Jakarta Selatan yang jual biji arabika wash di bawah 120rb per 200 gram untuk seduh V60?",
+          sentiment: "neutral",
+          isSarcasm: false,
+          edited: false,
+          reasoning: "Pertanyaan pencarian informasi murni tanpa sentimen memuji maupun mengeluh."
+        }
+      ],
+      analysis: {
+        executiveVerdict: "Percakapan publik mengenai Harga Kopi Lokal menunjukkan sentimen cenderung kritis (NSS -14) dengan porsi keluhan 45%, di mana hampir seperlima percakapan menggunakan sarkasme halus khas netizen Indonesia. Ketidakpuasan audiens bukan semata-mata menolak kenaikan harga, melainkan persepsi turunnya 'value for money' akibat porsi es batu berlebih dan inkonsistensi rasa. Di sisi lain, segmen konsumen yang teredukasi tetap memberikan dukungan kuat (31% positif) ketika brand transparan mengenai kualitas biji lokal dan kesejahteraan petani.",
+        recommendations: {
+          immediateAction: [
+            "Audit ulang standar takaran es batu dan volume kopi di seluruh outlet guna meredam isu shrinkflation dalam 48 jam ke depan.",
+            "Siapkan paket 'Everyday Value' (misal bundling kopi + roti atau ukuran hemat pagi hari) untuk menjaga retensi pekerja komuter.",
+            "Tanggapi komentar kritis di X dan TikTok secara empatik dengan transparansi asal biji kopi, hindari nada defensif."
+          ],
+          communicationAngle: [
+            "Angkat kampanye edukasi ringan 'Di Balik Segelas Kopi Lokal' yang menjelaskan kenaikan biaya biji kopi dan dampaknya bagi petani lokal.",
+            "Gandeng kreator ulasan kopi objektif untuk menunjukkan takaran espresso dan proses penyeduhan secara transparan (anti-gimmick).",
+            "Sorot kualitas rasa dan konsistensi single origin lokal sebagai pembeda nilai dibanding sekadar perang diskon."
+          ],
+          riskWatchlist: [
+            "Pantau kata kunci turunan: 'es batu doang', 'kopi kemahalan', 'shrinkflation kopi', dan 'pindah seduh sendiri'.",
+            "Awasi akun-akun review kuliner viral di TikTok & akun menfess pekerja (@convomfs, @worksfess) yang kerap memicu efek bola salju.",
+            "Waspadai lonjakan keluhan biaya aplikasi pesan-antar online saat promo berakhir di awal bulan."
+          ]
+        }
+      }
+    };
+
+    /**
+     * ============================================================================
+     * UTILITAS UMUM, FORMATTER, CLIPBOARD & TOAST
+     * ============================================================================
+     */
+    function formatNumber(num) {
+      if (num === null || num === undefined || isNaN(num)) return "0";
+      return new Intl.NumberFormat("id-ID").format(Math.round(num));
+    }
+
+    function formatCompact(num) {
+      if (num >= 1000000) return (num / 1000000).toFixed(1).replace(".", ",") + "M";
+      if (num >= 1000) return (num / 1000).toFixed(1).replace(".", ",") + "K";
+      return formatNumber(num);
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Salin teks aman untuk lingkungan iFrame via document.execCommand('copy')
+    function copyTextSafe(text) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        ta.style.top = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    // Toast notification tanpa alert()
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toast-container");
+      const toast = document.createElement("div");
+
+      const styles = {
+        info: "bg-charcoal text-white border-slate-700",
+        success: "bg-pos-dark text-white border-emerald-600",
+        error: "bg-neg-dark text-white border-red-600",
+        warning: "bg-brand text-white border-orange-600"
+      };
+
+      const icons = {
+        info: "info",
+        success: "check-circle-2",
+        error: "alert-circle",
+        warning: "alert-triangle"
+      };
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs sm:text-sm font-medium animate-fade-up ${styles[type] || styles.info}`;
+      toast.innerHTML = `
+        <i data-lucide="${icons[type] || 'info'}" class="w-4 h-4 shrink-0"></i>
+        <span class="flex-1">${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+      lucide.createIcons({ root: toast });
+
+      setTimeout(() => {
+        toast.style.opacity = "0";
+        toast.style.transform = "translateY(6px)";
+        toast.style.transition = "all 0.25s ease";
+        setTimeout(() => toast.remove(), 260);
+      }, 4200);
+    }
+
+    // Kontrol Loading Overlay Bertahap
+    function setLoadingState(isLoading, step = 1, subtitle = "") {
+      const overlay = document.getElementById("loading-overlay");
+      const progressBar = document.getElementById("loading-progress-bar");
+      const subEl = document.getElementById("loading-subtitle");
+
+      if (!isLoading) {
+        overlay.classList.add("hidden");
+        overlay.classList.remove("flex");
+        return;
+      }
+
+      overlay.classList.remove("hidden");
+      overlay.classList.add("flex");
+      if (subtitle) subEl.textContent = subtitle;
+
+      const widths = { 1: "32%", 2: "68%", 3: "94%" };
+      progressBar.style.width = widths[step] || "20%";
+
+      [1, 2, 3].forEach((idx) => {
+        const el = document.getElementById(`step-${idx}`);
+        const dot = el.querySelector(".step-dot");
+        const text = el.querySelector("span");
+
+        if (idx < step) {
+          el.className = "flex items-center gap-3 p-3 rounded-xl border border-emerald-200 bg-pos-soft/60 transition-all";
+          dot.className = "step-dot w-2.5 h-2.5 rounded-full bg-pos shrink-0";
+          text.className = "text-xs sm:text-sm font-semibold text-pos-dark";
+        } else if (idx === step) {
+          el.className = "flex items-center gap-3 p-3 rounded-xl border border-brand-border bg-brand-soft transition-all";
+          dot.className = "step-dot w-2.5 h-2.5 rounded-full bg-brand pulse-dot shrink-0";
+          text.className = "text-xs sm:text-sm font-bold text-charcoal";
+        } else {
+          el.className = "flex items-center gap-3 p-3 rounded-xl border border-slate-200 bg-slate-50 transition-all";
+          dot.className = "step-dot w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0";
+          text.className = "text-xs sm:text-sm font-medium text-slate-500";
+        }
+      });
+    }
+
+    function getCalibrationConfig() {
+      const selectedSources = Array.from(document.querySelectorAll(".source-cb:checked")).map(cb => cb.value);
+      return {
+        context: document.getElementById("input-context").value.trim() || "Fokus pada opini publik, pengalaman pengguna, dan pemberitaan utama terkait topik di Indonesia.",
+        rubricPos: document.getElementById("rubric-pos").value.trim() || "Pujian, dukungan, kepuasan, atau sentimen optimistis.",
+        rubricNeg: document.getElementById("rubric-neg").value.trim() || "Keluhan, kritik, kekecewaan, atau sindiran sarkasme.",
+        rubricNeu: document.getElementById("rubric-neu").value.trim() || "Informasi faktual, berita netral, atau pertanyaan murni.",
+        sarcasmEnabled: document.getElementById("toggle-sarcasm").checked,
+        webGroundingEnabled: document.getElementById("toggle-web-grounding").checked,
+        timeframe: document.getElementById("select-timeframe").value,
+        sources: selectedSources.length > 0 ? selectedSources : ["X", "TikTok", "Instagram", "Portal Berita Online"]
+      };
+    }
+
+    /**
+     * ============================================================================
+     * GEMINI API CLIENT (EXPONENTIAL BACKOFF, GROUNDED SEARCH & STRUCTURED JSON)
+     * ============================================================================
+     */
+    async function fetchGeminiWithRetry(payload) {
+      const maxRetries = 3;
+      const delays = [1000, 2000, 4000];
+      const endpoint = getGeminiEndpoint();
+
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const response = await fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+
+          if (!response.ok) {
+            if ((response.status === 429 || response.status >= 500) && attempt < maxRetries) {
+              await new Promise(res => setTimeout(res, delays[attempt]));
+              continue;
+            }
+            const errText = await response.text();
+            const err = new Error(`HTTP ${response.status}: ${errText.slice(0, 140)}`);
+            if (response.status === 400 || response.status === 401 || response.status === 403) {
+              err.isAuthError = true;
+            }
+            throw err;
+          }
+
+          return await response.json();
+        } catch (err) {
+          if (err?.isAuthError) throw err;
+          if (attempt < maxRetries) {
+            await new Promise(res => setTimeout(res, delays[attempt]));
+            continue;
+          }
+          throw err;
+        }
+      }
+    }
+
+    async function callGeminiStructured(systemInstruction, userPrompt, responseSchema) {
+      const payload = {
+        contents: [{ role: "user", parts: [{ text: userPrompt }] }],
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: responseSchema,
+          temperature: 0.45
+        }
+      };
+
+      const result = await fetchGeminiWithRetry(payload);
+      const rawText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!rawText) throw new Error("Respons AI kosong atau tidak valid.");
+      return JSON.parse(rawText);
+    }
+
+    // Tahap 1 opsional: Grounding Web Real-Time via Google Search
+    async function fetchLiveWebIntelligence(keyword, timeframe, context) {
+      try {
+        const payload = {
+          contents: [{
+            role: "user",
+            parts: [{
+              text: `Cari berita terkini, diskusi publik, sentimen netizen, dan isu viral di Indonesia mengenai "${keyword}" dalam rentang waktu "${timeframe}". Konteks fokus: ${context}. Ringkas fakta utama, pemicu pro-kontra, dan media/tokoh yang paling banyak membicarakannya.`
+            }]
+          }],
+          tools: [{ google_search: {} }],
+          systemInstruction: {
+            parts: [{
+              text: "Kamu adalah peneliti intelijen media Indonesia. Berikan ringkasan fakta aktual berbahasa Indonesia dalam 2-3 paragraf ringkas berdasarkan hasil pencarian Google Search terbaru."
+            }]
+          }
+        };
+
+        const result = await fetchGeminiWithRetry(payload);
+        const candidate = result?.candidates?.[0];
+        const summaryText = candidate?.content?.parts?.map(p => p.text).filter(Boolean).join("\n") || "";
+
+        // Ekstrak grounding citations (mendukung kedua struktur groundingChunks & groundingAttributions)
+        const sourcesMap = new Map();
+        const gm = candidate?.groundingMetadata;
+        if (gm?.groundingAttributions) {
+          gm.groundingAttributions.forEach(attr => {
+            if (attr.web?.uri && attr.web?.title) {
+              sourcesMap.set(attr.web.uri, { uri: attr.web.uri, title: attr.web.title });
+            }
+          });
+        }
+        if (gm?.groundingChunks) {
+          gm.groundingChunks.forEach(chunk => {
+            if (chunk.web?.uri && chunk.web?.title) {
+              sourcesMap.set(chunk.web.uri, { uri: chunk.web.uri, title: chunk.web.title });
+            }
+          });
+        }
+
+        return {
+          summary: summaryText,
+          sources: Array.from(sourcesMap.values()).slice(0, 6)
+        };
+      } catch (e) {
+        // Fallback halus tanpa menggagalkan proses utama
+        return { summary: "", sources: [] };
+      }
+    }
+
+    /**
+     * ============================================================================
+     * MODE A: EKSPLORASI AI (DENGAN OPSIONAL GROUNDING WEB REAL-TIME)
+     * ============================================================================
+     */
+    async function runExploreMode() {
+      const keyword = document.getElementById("input-keyword").value.trim();
+      if (!keyword) {
+        showToast("Masukkan keyword atau topik terlebih dahulu.", "warning");
+        document.getElementById("input-keyword").focus();
+        return;
+      }
+
+      const cfg = getCalibrationConfig();
+      const btn = document.getElementById("btn-run-explore");
+      btn.disabled = true;
+
+      try {
+        let webBrief = "";
+        let webSources = [];
+
+        if (cfg.webGroundingEnabled) {
+          setLoadingState(true, 1, `Menelusuri berita & percakapan aktual "${keyword}" via Google Search...`);
+          const intel = await fetchLiveWebIntelligence(keyword, cfg.timeframe, cfg.context);
+          webBrief = intel.summary;
+          webSources = intel.sources;
+        } else {
+          setLoadingState(true, 1, `Menganalisis lanskap percakapan "${keyword}" di ${cfg.sources.length} kanal...`);
+        }
+
+        setLoadingState(true, 2, "Mengkalibrasi sentimen kustom & deteksi sarkasme netizen Indonesia...");
+        const step3Timer = setTimeout(() => {
+          setLoadingState(true, 3, "Menyusun Executive Verdict & rekomendasi strategis...");
+        }, 2500);
+
+        const systemInstruction = `Kamu adalah "Dengerin Aja", engine AI Social & Digital Media Listening profesional khusus ekosistem digital Indonesia.
+Tugasmu adalah mensintesis lanskap percakapan digital Indonesia yang realistis, tajam, dan terkalibrasi secara ketat berdasarkan Deskripsi Topik dan Rubrik Sentimen pengguna.
+ATURAN KETAT:
+1. Gunakan Bahasa Indonesia yang natural dan profesional. Kutipan verbatim harus terasa autentik seperti gaya bicara netizen/media Indonesia (termasuk sarkasme halus jika fitur sarkasme aktif).
+2. Jika tersedia "Ringkasan Intelijen Web Real-Time", WAJIB jadikan fakta, isu, dan nama media/aktor di dalamnya sebagai fondasi utama analisa.
+3. Pastikan seluruh distribusi platform hanya memakai kanal yang diaktifkan user.
+4. Pastikan persentase Positif + Netral + Negatif tepat berjumlah 100.
+5. Pastikan persentase drivers negatif berjumlah 100 dan drivers positif berjumlah 100.
+6. Jangan buat data generik; sesuaikan secara spesifik dengan konteks topik "${keyword}".`;
+
+        const userPrompt = `Lakukan sintesis social & digital media listening untuk:
+- Keyword/Topik: "${keyword}"
+- Rentang Waktu: ${cfg.timeframe}
+- Kanal Aktif: ${cfg.sources.join(", ")}
+- Deskripsi Topik (Grounding Context): ${cfg.context}
+- Rubrik Sentimen:
+  * POSITIF: ${cfg.rubricPos}
+  * NEGATIF: ${cfg.rubricNeg}
+  * NETRAL: ${cfg.rubricNeu}
+- Deteksi Sarkasme & Slang Indonesia: ${cfg.sarcasmEnabled ? "AKTIF (sertakan minimal 2 kutipan sarkasme yang dikalibrasi tepat)" : "NONAKTIF"}
+${webBrief ? `\n--- RINGKASAN INTELIJEN WEB REAL-TIME (GOOGLE SEARCH) ---\n${webBrief}\n--- AKHIR RINGKASAN WEB ---\n` : ""}
+
+Hasilkan 8 kutipan verbatim representatif yang mencakup berbagai kanal aktif, lengkap dengan alasan klasifikasi berdasarkan rubrik user.`;
+
+        const schema = {
+          type: "OBJECT",
+          properties: {
+            totalMentions: { type: "INTEGER" },
+            uniqueAuthors: { type: "INTEGER" },
+            totalEngagement: { type: "INTEGER" },
+            positivePct: { type: "INTEGER" },
+            neutralPct: { type: "INTEGER" },
+            negativePct: { type: "INTEGER" },
+            sarcasmPct: { type: "INTEGER" },
+            trendStatus: { type: "STRING" },
+            velocityLabel: { type: "STRING" },
+            platforms: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  name: { type: "STRING" },
+                  type: { type: "STRING" },
+                  pct: { type: "INTEGER" }
+                },
+                required: ["name", "type", "pct"]
+              }
+            },
+            timeline: {
+              type: "OBJECT",
+              properties: {
+                labels: { type: "ARRAY", items: { type: "STRING" } },
+                values: { type: "ARRAY", items: { type: "INTEGER" } },
+                originIndex: { type: "INTEGER" },
+                peakIndex: { type: "INTEGER" }
+              },
+              required: ["labels", "values", "originIndex", "peakIndex"]
+            },
+            originator: {
+              type: "OBJECT",
+              properties: {
+                account: { type: "STRING" },
+                platform: { type: "STRING" },
+                category: { type: "STRING" },
+                timestamp: { type: "STRING" },
+                quote: { type: "STRING" }
+              },
+              required: ["account", "platform", "category", "timestamp", "quote"]
+            },
+            catalyst: {
+              type: "OBJECT",
+              properties: {
+                account: { type: "STRING" },
+                platform: { type: "STRING" },
+                engagement: { type: "STRING" },
+                pattern: { type: "STRING" },
+                reason: { type: "STRING" }
+              },
+              required: ["account", "platform", "engagement", "pattern", "reason"]
+            },
+            driversNegative: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  label: { type: "STRING" },
+                  pct: { type: "INTEGER" }
+                },
+                required: ["label", "pct"]
+              }
+            },
+            driversPositive: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  label: { type: "STRING" },
+                  pct: { type: "INTEGER" }
+                },
+                required: ["label", "pct"]
+              }
+            },
+            verbatims: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  platform: { type: "STRING" },
+                  account: { type: "STRING" },
+                  text: { type: "STRING" },
+                  sentiment: { type: "STRING" },
+                  isSarcasm: { type: "BOOLEAN" },
+                  reasoning: { type: "STRING" }
+                },
+                required: ["platform", "account", "text", "sentiment", "isSarcasm", "reasoning"]
+              }
+            },
+            executiveVerdict: { type: "STRING" },
+            immediateAction: { type: "ARRAY", items: { type: "STRING" } },
+            communicationAngle: { type: "ARRAY", items: { type: "STRING" } },
+            riskWatchlist: { type: "ARRAY", items: { type: "STRING" } }
+          },
+          required: [
+            "totalMentions", "uniqueAuthors", "totalEngagement",
+            "positivePct", "neutralPct", "negativePct", "sarcasmPct",
+            "trendStatus", "velocityLabel", "platforms", "timeline",
+            "originator", "catalyst", "driversNegative", "driversPositive",
+            "verbatims", "executiveVerdict", "immediateAction", "communicationAngle", "riskWatchlist"
+          ]
+        };
+
+        const aiRes = await callGeminiStructured(systemInstruction, userPrompt, schema);
+        clearTimeout(step3Timer);
+
+        // Normalisasi matematis deterministik
+        const total = Math.max(10, Number(aiRes.totalMentions) || 1200);
+        let posPct = Math.max(0, Number(aiRes.positivePct) || 33);
+        let negPct = Math.max(0, Number(aiRes.negativePct) || 33);
+        let neuPct = Math.max(0, Number(aiRes.neutralPct) || 34);
+        const sumPct = posPct + negPct + neuPct || 100;
+        posPct = Math.round((posPct / sumPct) * 100);
+        negPct = Math.round((negPct / sumPct) * 100);
+        neuPct = Math.max(0, 100 - posPct - negPct);
+
+        const posCount = Math.round((posPct / 100) * total);
+        const negCount = Math.round((negPct / 100) * total);
+        const neuCount = Math.max(0, total - posCount - negCount);
+        const nss = posPct - negPct;
+
+        // Normalisasi distribusi platform
+        const rawPlatforms = (aiRes.platforms || []).filter(p => p.pct > 0);
+        const pSum = rawPlatforms.reduce((acc, p) => acc + p.pct, 0) || 100;
+        const normalizedPlatforms = rawPlatforms.map(p => {
+          const pct = Math.max(1, Math.round((p.pct / pSum) * 100));
+          const normName = normalizePlatformName(p.name);
+          const isDigital = p.type === "digital" || /berita|portal|forum|blog/i.test(normName);
+          return {
+            name: normName,
+            type: isDigital ? "digital" : "social",
+            pct,
+            count: Math.round((pct / 100) * total)
+          };
+        }).sort((a, b) => b.count - a.count);
+
+        const nowStr = new Date().toLocaleString("id-ID", {
+          day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        currentData = {
+          id: `exp-${Date.now()}`,
+          keyword,
+          mode: "explore",
+          timeframe: cfg.timeframe,
+          generatedAt: `${nowStr} WIB • Mode Eksplorasi AI`,
+          contextUsed: cfg.context,
+          rubricUsed: { positive: cfg.rubricPos, negative: cfg.rubricNeg, neutral: cfg.rubricNeu },
+          sarcasmEnabled: cfg.sarcasmEnabled,
+          webGrounded: Boolean(webBrief || webSources.length),
+          webSources,
+          kpis: {
+            totalMentions: total,
+            uniqueAuthors: Math.min(total, Math.max(1, Number(aiRes.uniqueAuthors) || Math.round(total * 0.68))),
+            totalEngagement: Math.max(total, Number(aiRes.totalEngagement) || total * 24),
+            positiveCount: posCount,
+            neutralCount: neuCount,
+            negativeCount: negCount,
+            positivePct: posPct,
+            neutralPct: neuPct,
+            negativePct: negPct,
+            nss,
+            sarcasmPct: cfg.sarcasmEnabled ? Math.min(100, Math.max(0, Number(aiRes.sarcasmPct) || 0)) : 0,
+            trendStatus: aiRes.trendStatus || "Stabil",
+            velocityLabel: aiRes.velocityLabel || "+18% vs periode lalu"
+          },
+          platforms: normalizedPlatforms,
+          timeline: {
+            labels: aiRes.timeline?.labels?.length ? aiRes.timeline.labels : ["H-6", "H-5", "H-4", "H-3", "H-2", "H-1", "Hari Ini"],
+            values: aiRes.timeline?.values?.length ? aiRes.timeline.values : [120, 180, 260, 410, 350, 290, 240],
+            originIndex: Math.max(0, Number(aiRes.timeline?.originIndex) || 0),
+            peakIndex: Math.max(0, Number(aiRes.timeline?.peakIndex) || 3)
+          },
+          originator: aiRes.originator,
+          catalyst: aiRes.catalyst,
+          drivers: {
+            negative: (aiRes.driversNegative || []).slice(0, 4),
+            positive: (aiRes.driversPositive || []).slice(0, 4)
+          },
+          verbatims: (aiRes.verbatims || []).map((v, idx) => ({
+            id: `v-${Date.now()}-${idx}`,
+            platform: normalizePlatformName(v.platform),
+            account: v.account,
+            text: v.text,
+            sentiment: ["positive", "negative", "neutral"].includes((v.sentiment || "").toLowerCase())
+              ? v.sentiment.toLowerCase()
+              : "neutral",
+            isSarcasm: cfg.sarcasmEnabled ? Boolean(v.isSarcasm) : false,
+            edited: false,
+            reasoning: v.reasoning
+          })),
+          analysis: {
+            executiveVerdict: aiRes.executiveVerdict,
+            recommendations: {
+              immediateAction: aiRes.immediateAction || [],
+              communicationAngle: aiRes.communicationAngle || [],
+              riskWatchlist: aiRes.riskWatchlist || []
+            }
+          }
+        };
+
+        saveSnapshotToHistory(currentData);
+        resetQaThread();
+        renderDashboard(currentData);
+        showToast(
+          webSources.length
+            ? `Analisa "${keyword}" selesai dengan ${webSources.length} sumber web real-time!`
+            : `Analisa Eksplorasi AI untuk "${keyword}" selesai!`,
+          "success"
+        );
+      } catch (err) {
+        console.error("Explore Mode Error:", err);
+        if (err?.isAuthError) {
+          showToast("API Key Gemini belum diatur atau tidak valid. Masukkan API Key Anda untuk menjalankan di browser.", "warning");
+          openSettingsModal();
+        } else {
+          showToast("Gagal terhubung ke Gemini AI. Pastikan koneksi stabil lalu coba lagi.", "error");
+        }
+      } finally {
+        setLoadingState(false);
+        btn.disabled = false;
+      }
+    }
+
+    /**
+     * ============================================================================
+     * MODE B: ANALISA DATA MENTAH (PARSER PIPE/CSV + AI KLASIFIKASI + JS DETERMINISTIK)
+     * ============================================================================
+     */
+    function splitCsvRow(row) {
+      const result = [];
+      let current = "";
+      let inQuotes = false;
+      for (let i = 0; i < row.length; i++) {
+        const ch = row[i];
+        if (ch === '"') {
+          if (inQuotes && row[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          result.push(current.trim());
+          current = "";
+        } else {
+          current += ch;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    }
+
+    function parseRawLines(rawText) {
+      const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+      if (!lines.length) return [];
+
+      // Deteksi baris header CSV umum agar tidak ikut dihitung sebagai mention
+      const firstLower = lines[0].toLowerCase();
+      const startIndex = (
+        (firstLower.includes("platform") || firstLower.includes("channel")) &&
+        (firstLower.includes("text") || firstLower.includes("teks") || firstLower.includes("comment") || firstLower.includes("komentar") || firstLower.includes("mention"))
+      ) ? 1 : 0;
+
+      const parsed = [];
+      for (let i = startIndex; i < lines.length; i++) {
+        const line = lines[i];
+        const idx = parsed.length + 1;
+
+        if (line.includes("|")) {
+          const parts = line.split("|").map(p => p.trim());
+          if (parts.length >= 3) {
+            parsed.push({ id: idx, platform: parts[0] || "X", account: parts[1] || `@user_${idx}`, text: parts.slice(2).join(" | ") });
+          } else if (parts.length === 2) {
+            parsed.push({ id: idx, platform: parts[0] || "X", account: `@akun_${idx}`, text: parts[1] });
+          } else {
+            parsed.push({ id: idx, platform: "X", account: `@responden_${idx}`, text: line });
+          }
+        } else if (line.includes("\t")) {
+          const parts = line.split("\t").map(p => p.trim());
+          if (parts.length >= 3) {
+            parsed.push({ id: idx, platform: parts[0] || "X", account: parts[1] || `@user_${idx}`, text: parts.slice(2).join(" ") });
+          } else {
+            parsed.push({ id: idx, platform: "X", account: `@responden_${idx}`, text: line });
+          }
+        } else if ((line.match(/,/g) || []).length >= 2) {
+          const parts = splitCsvRow(line);
+          if (parts.length >= 3 && parts[0].length <= 28 && parts[1].length <= 40) {
+            parsed.push({ id: idx, platform: parts[0] || "X", account: parts[1] || `@user_${idx}`, text: parts.slice(2).join(", ") });
+          } else {
+            parsed.push({ id: idx, platform: "X", account: `@responden_${idx}`, text: line });
+          }
+        } else {
+          parsed.push({ id: idx, platform: "X", account: `@responden_${idx}`, text: line });
+        }
+      }
+      return parsed;
+    }
+
+    async function runRawMode() {
+      const topic = document.getElementById("input-raw-topic").value.trim() || "Analisa Data Mentah";
+      const rawText = document.getElementById("input-raw-mentions").value.trim();
+      const parsedItems = parseRawLines(rawText);
+
+      if (parsedItems.length === 0) {
+        showToast("Tempelkan minimal 1 baris komentar/mention atau unggah file CSV/TXT terlebih dahulu.", "warning");
+        document.getElementById("input-raw-mentions").focus();
+        return;
+      }
+
+      if (parsedItems.length > 60) {
+        showToast("Untuk kestabilan browser, maksimal 60 baris diproses sekaligus. Memproses 60 baris pertama.", "info");
+      }
+      const itemsToProcess = parsedItems.slice(0, 60);
+      const cfg = getCalibrationConfig();
+      const btn = document.getElementById("btn-run-raw");
+      btn.disabled = true;
+
+      try {
+        setLoadingState(true, 1, `Memvalidasi ${itemsToProcess.length} data mentah untuk topik "${topic}"...`);
+
+        const classifySystem = `Kamu adalah Tier-1 NLP Classifier "Dengerin Aja" spesialis Bahasa Indonesia.
+Tugasmu mengklasifikasikan SETIAP baris mention secara independen berdasarkan Deskripsi Topik dan Rubrik Sentimen dari user.
+ATURAN:
+- "sentiment" HANYA boleh: "positive", "negative", atau "neutral".
+- Jika "Deteksi Sarkasme" AKTIF dan kalimat mengandung pujian palsu/sindiran halus, set "isSarcasm": true dan petakan "sentiment" sesuai maksud aslinya (biasanya "negative").
+- Berikan "driverTopic" singkat (3-6 kata) tentang alasan utama di balik mention tersebut.
+- Berikan "reasoning" 1 kalimat singkat yang merujuk pada rubrik user.
+- Berikan "impactScore" integer 1-100 yang memperkirakan potensi viralitas/keterlibatan komentar tersebut.`;
+
+        const classifyPrompt = `Topik: "${topic}"
+Grounding Context: ${cfg.context}
+Rubrik Sentimen:
+- POSITIF: ${cfg.rubricPos}
+- NEGATIF: ${cfg.rubricNeg}
+- NETRAL: ${cfg.rubricNeu}
+Deteksi Sarkasme: ${cfg.sarcasmEnabled ? "AKTIF" : "NONAKTIF"}
+
+Klasifikasikan seluruh ${itemsToProcess.length} mention berikut (pertahankan id aslinya):
+${JSON.stringify(itemsToProcess)}`;
+
+        const classifySchema = {
+          type: "OBJECT",
+          properties: {
+            classifications: {
+              type: "ARRAY",
+              items: {
+                type: "OBJECT",
+                properties: {
+                  id: { type: "INTEGER" },
+                  isRelevant: { type: "BOOLEAN" },
+                  sentiment: { type: "STRING" },
+                  isSarcasm: { type: "BOOLEAN" },
+                  driverTopic: { type: "STRING" },
+                  reasoning: { type: "STRING" },
+                  impactScore: { type: "INTEGER" },
+                  accountCategory: { type: "STRING" }
+                },
+                required: ["id", "isRelevant", "sentiment", "isSarcasm", "driverTopic", "reasoning", "impactScore", "accountCategory"]
+              }
+            }
+          },
+          required: ["classifications"]
+        };
+
+        setLoadingState(true, 2, `Mengkalibrasi sentimen & sarkasme pada ${itemsToProcess.length} mention...`);
+        const classRes = await callGeminiStructured(classifySystem, classifyPrompt, classifySchema);
+        const classMap = new Map((classRes.classifications || []).map(c => [c.id, c]));
+
+        // =========================================================================
+        // PERHITUNGAN DETERMINISTIK OLEH JAVASCRIPT (BUKAN OLEH AI)
+        // =========================================================================
+        const enriched = itemsToProcess.map(item => {
+          const c = classMap.get(item.id) || {
+            isRelevant: true,
+            sentiment: "neutral",
+            isSarcasm: false,
+            driverTopic: "Diskusi umum",
+            reasoning: "Klasifikasi fallback netral.",
+            impactScore: 15,
+            accountCategory: "Organik"
+          };
+          const cleanSent = ["positive", "negative", "neutral"].includes((c.sentiment || "").toLowerCase())
+            ? c.sentiment.toLowerCase()
+            : "neutral";
+          return {
+            ...item,
+            isRelevant: c.isRelevant !== false,
+            sentiment: cleanSent,
+            isSarcasm: cfg.sarcasmEnabled ? Boolean(c.isSarcasm) : false,
+            driverTopic: c.driverTopic || "Isu utama",
+            reasoning: c.reasoning || "Sesuai rubrik kalibrasi.",
+            impactScore: Math.max(1, Number(c.impactScore) || 10),
+            accountCategory: c.accountCategory || "Organik"
+          };
+        });
+
+        const relevantItems = enriched.filter(x => x.isRelevant).length > 0
+          ? enriched.filter(x => x.isRelevant)
+          : enriched;
+
+        const totalMentions = relevantItems.length;
+        const uniqueAuthors = new Set(relevantItems.map(x => x.account.toLowerCase())).size;
+
+        let positiveCount = 0, neutralCount = 0, negativeCount = 0, sarcasmCount = 0;
+        const platformCounts = {};
+        const negDriverMap = {};
+        const posDriverMap = {};
+
+        relevantItems.forEach(item => {
+          if (item.sentiment === "positive") {
+            positiveCount++;
+            posDriverMap[item.driverTopic] = (posDriverMap[item.driverTopic] || 0) + 1;
+          } else if (item.sentiment === "negative") {
+            negativeCount++;
+            negDriverMap[item.driverTopic] = (negDriverMap[item.driverTopic] || 0) + 1;
+          } else {
+            neutralCount++;
+          }
+          if (item.isSarcasm) sarcasmCount++;
+
+          const normPlat = normalizePlatformName(item.platform);
+          platformCounts[normPlat] = (platformCounts[normPlat] || 0) + 1;
+        });
+
+        const positivePct = Math.round((positiveCount / totalMentions) * 100);
+        const negativePct = Math.round((negativeCount / totalMentions) * 100);
+        const neutralPct = Math.max(0, 100 - positivePct - negativePct);
+        const nss = positivePct - negativePct;
+        const sarcasmPct = Math.round((sarcasmCount / totalMentions) * 100);
+        const totalEngagement = relevantItems.reduce((sum, x) => sum + (x.impactScore * 12), 0);
+
+        const platformsArr = Object.entries(platformCounts).map(([name, count]) => ({
+          name,
+          type: /berita|portal|forum|blog/i.test(name) ? "digital" : "social",
+          count,
+          pct: Math.round((count / totalMentions) * 100)
+        })).sort((a, b) => b.count - a.count);
+
+        const buildDrivers = (map, denom) => {
+          const entries = Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 3);
+          if (!entries.length || denom === 0) return [];
+          return entries.map(([label, cnt]) => ({
+            label,
+            pct: Math.round((cnt / denom) * 100)
+          }));
+        };
+        const driversNegative = buildDrivers(negDriverMap, negativeCount);
+        const driversPositive = buildDrivers(posDriverMap, positiveCount);
+
+        const firstItem = relevantItems[0];
+        const catalystItem = [...relevantItems].sort((a, b) => b.impactScore - a.impactScore)[0];
+
+        const bucketCount = Math.min(6, Math.max(3, Math.ceil(totalMentions / 2)));
+        const bucketSize = Math.ceil(totalMentions / bucketCount);
+        const timelineLabels = [];
+        const timelineValues = [];
+        for (let b = 0; b < bucketCount; b++) {
+          const slice = relevantItems.slice(b * bucketSize, (b + 1) * bucketSize);
+          timelineLabels.push(`Batch ${b + 1}`);
+          timelineValues.push(slice.length);
+        }
+        const peakIndex = timelineValues.indexOf(Math.max(...timelineValues));
+
+        // STEP 3: Tier-2 AI Synthesis
+        setLoadingState(true, 3, "Menyusun Executive Verdict & Rekomendasi Taktis dari angka deterministik...");
+
+        const synthSystem = `Kamu adalah Senior Strategic Analyst "Dengerin Aja".
+Semua angka statistik berikut sudah dihitung secara deterministik dari data mentah milik pengguna. JANGAN mengubah angkanya.
+Tugasmu hanya menyusun Executive Verdict (3 kalimat tajam) dan rekomendasi taktis yang konkret dan spesifik pada data tersebut.`;
+
+        const synthPrompt = `Topik: "${topic}"
+Angka Hasil Kalkulasi Deterministik:
+- Total Mentions Relevan: ${totalMentions} (dari ${itemsToProcess.length} input, Unique Authors: ${uniqueAuthors})
+- Sentimen: Positif ${positivePct}% (${positiveCount}), Netral ${neutralPct}% (${neutralCount}), Negatif ${negativePct}% (${negativeCount})
+- Net Sentiment Score (NSS): ${nss}
+- Indikasi Sarkasme: ${sarcasmPct}% (${sarcasmCount} mention)
+- Platform Dominan: ${platformsArr[0]?.name || "X"} (${platformsArr[0]?.pct || 100}%)
+- Top Catalyst: ${catalystItem.account} di ${catalystItem.platform} ("${catalystItem.text}")
+- Pemicu Negatif: ${JSON.stringify(driversNegative)}
+- Pemicu Positif: ${JSON.stringify(driversPositive)}
+- Sampel Kutipan: ${JSON.stringify(relevantItems.slice(0, 12).map(x => ({ akun: x.account, sentimen: x.sentiment, sarkasme: x.isSarcasm, teks: x.text })))}
+
+Buat ringkasan eksekutif, alasan mengapa catalyst menonjol, status tren, dan 3 kelompok rekomendasi taktis (masing-masing 3 poin singkat padat).`;
+
+        const synthSchema = {
+          type: "OBJECT",
+          properties: {
+            trendStatus: { type: "STRING" },
+            catalystReason: { type: "STRING" },
+            spreadPattern: { type: "STRING" },
+            executiveVerdict: { type: "STRING" },
+            immediateAction: { type: "ARRAY", items: { type: "STRING" } },
+            communicationAngle: { type: "ARRAY", items: { type: "STRING" } },
+            riskWatchlist: { type: "ARRAY", items: { type: "STRING" } }
+          },
+          required: ["trendStatus", "catalystReason", "spreadPattern", "executiveVerdict", "immediateAction", "communicationAngle", "riskWatchlist"]
+        };
+
+        const synthRes = await callGeminiStructured(synthSystem, synthPrompt, synthSchema);
+
+        const nowStr = new Date().toLocaleString("id-ID", {
+          day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+        });
+
+        currentData = {
+          id: `raw-${Date.now()}`,
+          keyword: topic,
+          mode: "raw",
+          timeframe: `Dataset Mentah (${totalMentions} Mentions)`,
+          generatedAt: `${nowStr} WIB • Analisa Deterministik Data Mentah`,
+          contextUsed: cfg.context,
+          rubricUsed: { positive: cfg.rubricPos, negative: cfg.rubricNeg, neutral: cfg.rubricNeu },
+          sarcasmEnabled: cfg.sarcasmEnabled,
+          webGrounded: false,
+          webSources: [],
+          kpis: {
+            totalMentions,
+            uniqueAuthors,
+            totalEngagement,
+            positiveCount,
+            neutralCount,
+            negativeCount,
+            positivePct,
+            neutralPct,
+            negativePct,
+            nss,
+            sarcasmPct,
+            trendStatus: synthRes.trendStatus || (nss < -10 ? "Kritis" : "Aktif"),
+            velocityLabel: `Rasio ${(totalMentions / Math.max(1, uniqueAuthors)).toFixed(1)}x post/akun`
+          },
+          platforms: platformsArr,
+          timeline: {
+            labels: timelineLabels,
+            values: timelineValues,
+            originIndex: 0,
+            peakIndex: Math.max(0, peakIndex)
+          },
+          originator: {
+            account: firstItem.account,
+            platform: normalizePlatformName(firstItem.platform),
+            category: firstItem.accountCategory,
+            timestamp: "Entri #1 Dataset",
+            quote: firstItem.text
+          },
+          catalyst: {
+            account: catalystItem.account,
+            platform: normalizePlatformName(catalystItem.platform),
+            engagement: `Skor Dampak ${catalystItem.impactScore}/100`,
+            pattern: synthRes.spreadPattern || "Organik",
+            reason: synthRes.catalystReason || catalystItem.reasoning
+          },
+          drivers: {
+            negative: driversNegative.length ? driversNegative : [{ label: "Tidak ada keluhan dominan pada dataset", pct: 0 }],
+            positive: driversPositive.length ? driversPositive : [{ label: "Tidak ada pujian dominan pada dataset", pct: 0 }]
+          },
+          verbatims: relevantItems.map((item, idx) => ({
+            id: `v-${Date.now()}-${idx}`,
+            platform: normalizePlatformName(item.platform),
+            account: item.account,
+            text: item.text,
+            sentiment: item.sentiment,
+            isSarcasm: item.isSarcasm,
+            edited: false,
+            reasoning: item.reasoning
+          })),
+          analysis: {
+            executiveVerdict: synthRes.executiveVerdict,
+            recommendations: {
+              immediateAction: synthRes.immediateAction || [],
+              communicationAngle: synthRes.communicationAngle || [],
+              riskWatchlist: synthRes.riskWatchlist || []
+            }
+          }
+        };
+
+        saveSnapshotToHistory(currentData);
+        resetQaThread();
+        renderDashboard(currentData);
+        showToast(`${totalMentions} mention berhasil diklasifikasi & dihitung deterministik!`, "success");
+      } catch (err) {
+        console.error("Raw Mode Error:", err);
+        if (err?.isAuthError) {
+          showToast("API Key Gemini belum diatur atau tidak valid. Masukkan API Key Anda untuk menjalankan di browser.", "warning");
+          openSettingsModal();
+        } else {
+          showToast("Gagal memproses data mentah dengan Gemini AI. Coba lagi.", "error");
+        }
+      } finally {
+        setLoadingState(false);
+        btn.disabled = false;
+      }
+    }
+
+    function normalizePlatformName(raw) {
+      const s = (raw || "").toLowerCase();
+      if (s.includes("twitter") || s === "x") return "X";
+      if (s.includes("tiktok")) return "TikTok";
+      if (s.includes("insta") || s === "ig") return "Instagram";
+      if (s.includes("youtube") || s === "yt") return "YouTube";
+      if (s.includes("thread")) return "Threads";
+      if (s.includes("berita") || s.includes("news") || s.includes("media") || s.includes("portal")) return "Portal Berita Online";
+      if (s.includes("forum") || s.includes("blog") || s.includes("kaskus") || s.includes("reddit")) return "Forum/Blog";
+      return raw || "X";
+    }
+
+    /**
+     * ============================================================================
+     * HUMAN-IN-THE-LOOP AUDIT: KOREKSI SENTIMEN VERBATIM & REKALKULASI KPI LIVE
+     * ============================================================================
+     */
+    function overrideVerbatimSentiment(verbatimId, newSentiment, toggleSarcasmOnly = false) {
+      if (!currentData) return;
+      const target = currentData.verbatims.find(v => v.id === verbatimId);
+      if (!target) return;
+
+      const prevSentiment = target.sentiment;
+      const prevSarcasm = target.isSarcasm;
+
+      if (toggleSarcasmOnly) {
+        target.isSarcasm = !target.isSarcasm;
+      } else {
+        target.sentiment = newSentiment;
+      }
+      target.edited = true;
+      target.reasoning = "Dikoreksi manual oleh analis (Human-in-the-Loop Audit).";
+
+      // Hitung ulang KPI secara deterministik
+      if (currentData.mode === "raw") {
+        // 100% eksak dari seluruh list verbatim
+        const total = currentData.verbatims.length || 1;
+        const pos = currentData.verbatims.filter(v => v.sentiment === "positive").length;
+        const neu = currentData.verbatims.filter(v => v.sentiment === "neutral").length;
+        const neg = currentData.verbatims.filter(v => v.sentiment === "negative").length;
+        const sarc = currentData.verbatims.filter(v => v.isSarcasm).length;
+
+        const posPct = Math.round((pos / total) * 100);
+        const negPct = Math.round((neg / total) * 100);
+        const neuPct = Math.max(0, 100 - posPct - negPct);
+
+        currentData.kpis.positiveCount = pos;
+        currentData.kpis.neutralCount = neu;
+        currentData.kpis.negativeCount = neg;
+        currentData.kpis.positivePct = posPct;
+        currentData.kpis.neutralPct = neuPct;
+        currentData.kpis.negativePct = negPct;
+        currentData.kpis.nss = posPct - negPct;
+        currentData.kpis.sarcasmPct = Math.round((sarc / total) * 100);
+      } else {
+        // Pada Mode Eksplorasi / Sample, sesuaikan proporsi berdasarkan delta koreksi sampel
+        const k = currentData.kpis;
+        const stepWeight = Math.max(1, Math.round(k.totalMentions / Math.max(1, currentData.verbatims.length * 4)));
+        if (!toggleSarcasmOnly && prevSentiment !== newSentiment) {
+          if (prevSentiment === "positive") k.positiveCount = Math.max(0, k.positiveCount - stepWeight);
+          if (prevSentiment === "neutral") k.neutralCount = Math.max(0, k.neutralCount - stepWeight);
+          if (prevSentiment === "negative") k.negativeCount = Math.max(0, k.negativeCount - stepWeight);
+
+          if (newSentiment === "positive") k.positiveCount += stepWeight;
+          if (newSentiment === "neutral") k.neutralCount += stepWeight;
+          if (newSentiment === "negative") k.negativeCount += stepWeight;
+
+          const total = k.positiveCount + k.neutralCount + k.negativeCount || 1;
+          k.positivePct = Math.round((k.positiveCount / total) * 100);
+          k.negativePct = Math.round((k.negativeCount / total) * 100);
+          k.neutralPct = Math.max(0, 100 - k.positivePct - k.negativePct);
+          k.nss = k.positivePct - k.negativePct;
+        }
+        if (toggleSarcasmOnly && prevSarcasm !== target.isSarcasm) {
+          const sarcRatio = Math.round((currentData.verbatims.filter(v => v.isSarcasm).length / currentData.verbatims.length) * 100);
+          k.sarcasmPct = sarcRatio;
+        }
+      }
+
+      renderDashboard(currentData, true);
+      showToast("Koreksi audit sentimen diterapkan & metrik KPI diperbarui otomatis.", "info");
+    }
+
+    /**
+     * ============================================================================
+     * RENDER DASHBOARD & VISUALISASI CHART.JS
+     * ============================================================================
+     */
+    function renderDashboard(data, preserveVerbatimFilters = false) {
+      // Header topik
+      document.getElementById("dash-topic-title").textContent = data.keyword;
+      document.getElementById("dash-timeframe-tag").textContent = data.timeframe;
+      document.getElementById("dash-generated-at").textContent = data.generatedAt;
+
+      const modeLabels = {
+        sample: `Sample Pra-Muat: ${data.keyword}`,
+        explore: `Eksplorasi AI: ${data.keyword}`,
+        raw: `Data Mentah (${data.kpis.totalMentions} baris): ${data.keyword}`
+      };
+      document.getElementById("active-mode-label").textContent = modeLabels[data.mode] || data.keyword;
+      document.getElementById("dash-mode-tag").textContent =
+        data.mode === "raw" ? "ANALISA DETERMINISTIK DATA MENTAH"
+        : data.mode === "explore" ? "SINTESIS EKSPLORASI AI"
+        : "SAMPLE PRA-MUAT LISTENING";
+
+      // Grounding web indicator & citations
+      const groundedPill = document.getElementById("dash-grounded-pill");
+      const sourcesBar = document.getElementById("web-sources-bar");
+      const sourcesList = document.getElementById("web-sources-list");
+
+      if (data.webGrounded) {
+        groundedPill.classList.remove("hidden");
+      } else {
+        groundedPill.classList.add("hidden");
+      }
+
+      if (data.webSources && data.webSources.length > 0) {
+        sourcesBar.classList.remove("hidden");
+        sourcesList.innerHTML = data.webSources.map(s => `
+          <a href="${escapeHtml(s.uri)}" target="_blank" rel="noopener noreferrer"
+             class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-brand-soft border border-slate-200 hover:border-brand-border text-[11px] font-medium text-charcoal hover:text-brand transition-colors">
+            <span class="truncate max-w-[200px]">${escapeHtml(s.title)}</span>
+            <i data-lucide="external-link" class="w-3 h-3 shrink-0"></i>
+          </a>
+        `).join("");
+      } else {
+        sourcesBar.classList.add("hidden");
+      }
+
+      // ROW 1: KPI Cards
+      const k = data.kpis;
+      document.getElementById("kpi-total-mentions").textContent = formatNumber(k.totalMentions);
+      document.getElementById("kpi-unique-authors").textContent = formatNumber(k.uniqueAuthors);
+      document.getElementById("kpi-total-engagement").textContent = formatCompact(k.totalEngagement);
+
+      // NSS Styling Semantik
+      const nssEl = document.getElementById("kpi-nss-score");
+      const nssBadge = document.getElementById("kpi-nss-badge");
+      const nssPrefix = k.nss > 0 ? "+" : "";
+      nssEl.textContent = `${nssPrefix}${k.nss}`;
+
+      if (k.nss >= 15) {
+        nssEl.className = "font-display font-extrabold text-3xl sm:text-4xl text-pos tabular-nums tracking-tight";
+        nssBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-pos-soft text-pos-dark";
+        nssBadge.textContent = "Sangat Positif";
+      } else if (k.nss >= 0) {
+        nssEl.className = "font-display font-extrabold text-3xl sm:text-4xl text-charcoal tabular-nums tracking-tight";
+        nssBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700";
+        nssBadge.textContent = "Moderat / Seimbang";
+      } else if (k.nss > -20) {
+        nssEl.className = "font-display font-extrabold text-3xl sm:text-4xl text-neg tabular-nums tracking-tight";
+        nssBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-neg-soft text-neg-dark";
+        nssBadge.textContent = "Cenderung Kritis";
+      } else {
+        nssEl.className = "font-display font-extrabold text-3xl sm:text-4xl text-neg tabular-nums tracking-tight";
+        nssBadge.className = "px-2 py-0.5 rounded-full text-[11px] font-bold bg-neg text-white";
+        nssBadge.textContent = "Crisis Alert";
+      }
+
+      const markerPos = Math.min(98, Math.max(2, ((k.nss + 100) / 200) * 100));
+      document.getElementById("kpi-nss-marker").style.left = `${markerPos}%`;
+
+      // Kanal Teraktif & Rasio Social vs Digital
+      const topPlat = data.platforms[0] || { name: "X", pct: 100 };
+      document.getElementById("kpi-top-platform").textContent = topPlat.name === "X" ? "X / Twitter" : topPlat.name;
+      document.getElementById("kpi-top-platform-pct").textContent = `${topPlat.pct}%`;
+
+      const totalPlatCount = data.platforms.reduce((a, b) => a + b.count, 0) || 1;
+      const socialCount = data.platforms.filter(p => p.type === "social").reduce((a, b) => a + b.count, 0);
+      const socialPct = Math.round((socialCount / totalPlatCount) * 100);
+      const digitalPct = Math.max(0, 100 - socialPct);
+
+      document.getElementById("kpi-social-pct").textContent = `${socialPct}%`;
+      document.getElementById("kpi-digital-pct").textContent = `${digitalPct}%`;
+      document.getElementById("kpi-social-bar").style.width = `${socialPct}%`;
+      document.getElementById("kpi-digital-bar").style.width = `${digitalPct}%`;
+
+      // Sarkasme & Tren
+      document.getElementById("kpi-sarcasm-pct").textContent = `${k.sarcasmPct}%`;
+      document.getElementById("kpi-sarcasm-note").textContent = data.sarcasmEnabled
+        ? "Terkalibrasi pada slang netizen ID"
+        : "Filter sarkasme dinonaktifkan";
+      document.getElementById("kpi-trend-status").textContent = k.trendStatus;
+      document.getElementById("kpi-velocity-label").textContent = k.velocityLabel;
+
+      // ROW 2: Breakdown Sentimen Text & Donut Chart
+      document.getElementById("sent-pos-pct").textContent = `${k.positivePct}%`;
+      document.getElementById("sent-neu-pct").textContent = `${k.neutralPct}%`;
+      document.getElementById("sent-neg-pct").textContent = `${k.negativePct}%`;
+      document.getElementById("sent-pos-count").textContent = `${formatNumber(k.positiveCount)} mentions`;
+      document.getElementById("sent-neu-count").textContent = `${formatNumber(k.neutralCount)} mentions`;
+      document.getElementById("sent-neg-count").textContent = `${formatNumber(k.negativeCount)} mentions`;
+
+      const sentMax = [
+        { label: "Positif", pct: k.positivePct, cls: "text-pos" },
+        { label: "Netral", pct: k.neutralPct, cls: "text-neu" },
+        { label: "Negatif", pct: k.negativePct, cls: "text-neg" }
+      ].sort((a, b) => b.pct - a.pct)[0];
+      const centerLabel = document.getElementById("donut-center-label");
+      centerLabel.textContent = sentMax.label;
+      centerLabel.className = `font-display font-extrabold text-xl ${sentMax.cls}`;
+      document.getElementById("donut-center-pct").textContent = `${sentMax.pct}%`;
+
+      renderSentimentChart(k);
+      renderPlatformChart(data.platforms);
+      renderTimelineChart(data.timeline);
+
+      // ROW 3: Originator vs Catalyst
+      const orig = data.originator || {};
+      document.getElementById("orig-account").textContent = orig.account || "-";
+      document.getElementById("orig-platform").textContent = orig.platform === "X" ? "X / Twitter" : (orig.platform || "-");
+      document.getElementById("orig-category").textContent = orig.category || "Organik";
+      document.getElementById("orig-time").textContent = orig.timestamp || "-";
+      document.getElementById("orig-quote").textContent = `"${orig.quote || "-"}"`;
+
+      const cat = data.catalyst || {};
+      document.getElementById("cat-account").textContent = cat.account || "-";
+      document.getElementById("cat-platform").textContent = cat.platform === "X" ? "X / Twitter" : (cat.platform || "-");
+      document.getElementById("cat-engagement").textContent = cat.engagement || "-";
+      document.getElementById("cat-reason").textContent = cat.reason || "-";
+
+      const patEl = document.getElementById("cat-pattern");
+      const patText = cat.pattern || "Organik";
+      patEl.textContent = patText;
+      if (/koordinasi|buzzer|anorganik/i.test(patText)) {
+        patEl.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-neg-soft text-neg-dark uppercase";
+      } else {
+        patEl.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-pos-soft text-pos-dark uppercase";
+      }
+
+      // ROW 4: Key Drivers & Verbatims
+      renderDrivers(data.drivers);
+      if (!preserveVerbatimFilters) {
+        activeVerbatimFilter = "all";
+        activeVerbatimSearch = "";
+        document.getElementById("input-verbatim-search").value = "";
+      }
+      updateVerbatimFilterTabs();
+      renderVerbatims(data.verbatims, activeVerbatimFilter, activeVerbatimSearch);
+
+      // ROW 5: Analisa & Rekomendasi
+      document.getElementById("ai-executive-verdict").textContent = data.analysis?.executiveVerdict || "-";
+      renderRecList("rec-immediate", data.analysis?.recommendations?.immediateAction);
+      renderRecList("rec-communication", data.analysis?.recommendations?.communicationAngle);
+      renderRecList("rec-watchlist", data.analysis?.recommendations?.riskWatchlist);
+
+      lucide.createIcons();
+    }
+
+    function renderSentimentChart(k) {
+      const ctx = document.getElementById("chart-sentiment").getContext("2d");
+      if (sentimentChartInstance) sentimentChartInstance.destroy();
+
+      sentimentChartInstance = new Chart(ctx, {
+        type: "doughnut",
+        data: {
+          labels: ["Positif", "Netral", "Negatif"],
+          datasets: [{
+            data: [k.positivePct, k.neutralPct, k.negativePct],
+            backgroundColor: ["#10B981", "#94A3B8", "#EF4444"],
+            borderColor: "#FFFFFF",
+            borderWidth: 3,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "72%",
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#111827",
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: { label: (ctx) => ` ${ctx.label}: ${ctx.parsed}%` }
+            }
+          }
+        }
+      });
+    }
+
+    function renderPlatformChart(platforms) {
+      const ctx = document.getElementById("chart-platforms").getContext("2d");
+      if (platformChartInstance) platformChartInstance.destroy();
+
+      const labels = platforms.map(p => p.name === "X" ? "X / Twitter" : p.name);
+      const values = platforms.map(p => p.pct);
+      const counts = platforms.map(p => p.count);
+      const colors = platforms.map(p => p.type === "digital" ? "#F97316" : "#111827");
+
+      platformChartInstance = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Porsi Percakapan (%)",
+            data: values,
+            backgroundColor: colors,
+            borderRadius: 6,
+            barThickness: 18
+          }]
+        },
+        options: {
+          indexAxis: "y",
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              beginAtZero: true,
+              max: Math.min(100, Math.max(...values, 20) + 12),
+              grid: { color: "#F1F5F9" },
+              ticks: {
+                color: "#64748B",
+                font: { size: 11, family: "Inter" },
+                callback: v => `${v}%`
+              }
+            },
+            y: {
+              grid: { display: false },
+              ticks: {
+                color: "#111827",
+                font: { size: 12, weight: "600", family: "Inter" }
+              }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#111827",
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: {
+                label: (ctx) => ` ${ctx.parsed.x}% (${formatNumber(counts[ctx.dataIndex])} mentions)`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderTimelineChart(timeline) {
+      const ctx = document.getElementById("chart-timeline").getContext("2d");
+      if (timelineChartInstance) timelineChartInstance.destroy();
+
+      const gradient = ctx.createLinearGradient(0, 0, 0, 240);
+      gradient.addColorStop(0, "rgba(249, 115, 22, 0.22)");
+      gradient.addColorStop(1, "rgba(249, 115, 22, 0.0)");
+
+      const pointRadius = timeline.values.map((_, i) =>
+        i === timeline.peakIndex || i === timeline.originIndex ? 6 : 3.5
+      );
+      const pointBg = timeline.values.map((_, i) => {
+        if (i === timeline.peakIndex) return "#F97316";
+        if (i === timeline.originIndex) return "#111827";
+        return "#FFFFFF";
+      });
+      const pointBorder = timeline.values.map((_, i) => {
+        if (i === timeline.peakIndex || i === timeline.originIndex) return "#FFFFFF";
+        return "#F97316";
+      });
+
+      timelineChartInstance = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: timeline.labels,
+          datasets: [{
+            label: "Volume Percakapan",
+            data: timeline.values,
+            borderColor: "#F97316",
+            backgroundColor: gradient,
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.35,
+            pointRadius,
+            pointHoverRadius: 7,
+            pointBackgroundColor: pointBg,
+            pointBorderColor: pointBorder,
+            pointBorderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: "#64748B", font: { size: 11, family: "Inter" } }
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: "#F1F5F9" },
+              ticks: { color: "#64748B", font: { size: 11, family: "Inter" } }
+            }
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: "#111827",
+              padding: 10,
+              cornerRadius: 8,
+              callbacks: {
+                afterLabel: (ctx) => {
+                  if (ctx.dataIndex === timeline.originIndex) return "Penanda: Pemicu Awal (First Poster)";
+                  if (ctx.dataIndex === timeline.peakIndex) return "Penanda: Puncak Lonjakan (Top Catalyst)";
+                  return "";
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderDrivers(drivers) {
+      const renderBlock = (containerId, list, barColor, textColor) => {
+        const el = document.getElementById(containerId);
+        if (!list || !list.length) {
+          el.innerHTML = `<p class="text-xs text-neu italic">Belum ada data pemicu utama.</p>`;
+          return;
+        }
+        el.innerHTML = list.map(d => `
+          <div>
+            <div class="flex items-center justify-between gap-2 text-xs mb-1">
+              <span class="font-medium text-charcoal">${escapeHtml(d.label)}</span>
+              <span class="font-bold tabular-nums shrink-0 ${textColor}">${d.pct}%</span>
+            </div>
+            <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+              <div class="h-full rounded-full ${barColor} transition-all duration-500" style="width: ${Math.min(100, d.pct)}%"></div>
+            </div>
+          </div>
+        `).join("");
+      };
+
+      renderBlock("drivers-negative-list", drivers?.negative, "bg-neg", "text-neg-dark");
+      renderBlock("drivers-positive-list", drivers?.positive, "bg-pos", "text-pos-dark");
+    }
+
+    function renderVerbatims(verbatims, filter, searchQuery = "") {
+      const container = document.getElementById("verbatim-feed-list");
+      const q = (searchQuery || "").trim().toLowerCase();
+
+      const filtered = (verbatims || []).filter(v => {
+        const matchTab =
+          filter === "all" ? true
+          : filter === "sarcasm" ? v.isSarcasm
+          : v.sentiment === filter;
+        if (!matchTab) return false;
+        if (!q) return true;
+        return (
+          (v.text || "").toLowerCase().includes(q) ||
+          (v.account || "").toLowerCase().includes(q) ||
+          (v.platform || "").toLowerCase().includes(q)
+        );
+      });
+
+      if (!filtered.length) {
+        container.innerHTML = `
+          <div class="text-center py-10 px-4 border border-dashed border-slate-200 rounded-xl">
+            <p class="text-sm font-semibold text-charcoal mb-1">Tidak ada kutipan yang cocok</p>
+            <p class="text-xs text-neu">Coba ubah tab sentimen atau hapus kata kunci pencarian.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const badgeMap = {
+        positive: `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-pos-soft text-pos-dark border border-emerald-200">Positif</span>`,
+        negative: `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neg-soft text-neg-dark border border-red-200">Negatif</span>`,
+        neutral: `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-neu-soft text-slate-700 border border-slate-200">Netral</span>`
+      };
+
+      container.innerHTML = filtered.map(v => `
+        <article class="p-4 rounded-xl border border-slate-200 bg-slate-50/40 hover:bg-white transition-colors">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <div class="flex items-center gap-2">
+              <span class="font-bold text-xs text-charcoal">${escapeHtml(v.account)}</span>
+              <span class="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-white border border-slate-200 text-neu">${escapeHtml(v.platform)}</span>
+              ${v.edited ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-charcoal text-white">Diaudit</span>` : ""}
+            </div>
+            <div class="flex items-center gap-1.5">
+              ${v.isSarcasm ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-brand-soft text-brand border border-brand-border/80">Sarkasme</span>` : ""}
+              ${badgeMap[v.sentiment] || badgeMap.neutral}
+              <button
+                type="button"
+                data-toggle-audit="${escapeHtml(v.id)}"
+                title="Audit / Koreksi Sentimen Manual"
+                class="p-1 rounded-md text-slate-400 hover:text-charcoal hover:bg-slate-100 transition-colors"
+              >
+                <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Inline Human-in-the-Loop Audit Controls -->
+          <div id="audit-bar-${escapeHtml(v.id)}" class="hidden mb-2.5 p-2 rounded-lg bg-slate-100 border border-slate-200 flex flex-wrap items-center gap-1.5 text-[11px]">
+            <span class="font-semibold text-charcoal mr-1">Koreksi:</span>
+            <button type="button" data-audit-id="${escapeHtml(v.id)}" data-audit-sent="positive" class="px-2 py-0.5 rounded font-semibold ${v.sentiment === 'positive' ? 'bg-pos text-white' : 'bg-white text-pos-dark border border-emerald-200 hover:bg-pos-soft'}">Positif</button>
+            <button type="button" data-audit-id="${escapeHtml(v.id)}" data-audit-sent="neutral" class="px-2 py-0.5 rounded font-semibold ${v.sentiment === 'neutral' ? 'bg-neu text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}">Netral</button>
+            <button type="button" data-audit-id="${escapeHtml(v.id)}" data-audit-sent="negative" class="px-2 py-0.5 rounded font-semibold ${v.sentiment === 'negative' ? 'bg-neg text-white' : 'bg-white text-neg-dark border border-red-200 hover:bg-neg-soft'}">Negatif</button>
+            <span class="text-slate-300">|</span>
+            <button type="button" data-audit-sarcasm="${escapeHtml(v.id)}" class="px-2 py-0.5 rounded font-semibold ${v.isSarcasm ? 'bg-brand text-white' : 'bg-white text-brand border border-brand-border hover:bg-brand-soft'}">${v.isSarcasm ? 'Hapus Tag Sarkasme' : '+ Tandai Sarkasme'}</button>
+          </div>
+
+          <p class="text-xs sm:text-sm text-charcoal leading-relaxed mb-2.5">"${escapeHtml(v.text)}"</p>
+          <div class="flex items-start gap-1.5 text-[11px] text-neu bg-white border border-slate-100 rounded-lg px-2.5 py-1.5">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-brand shrink-0 mt-0.5"></i>
+            <span><strong class="text-slate-700">Alasan Kalibrasi:</strong> ${escapeHtml(v.reasoning)}</span>
+          </div>
+        </article>
+      `).join("");
+
+      // Bind audit events
+      container.querySelectorAll("[data-toggle-audit]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          const bar = document.getElementById(`audit-bar-${btn.dataset.toggleAudit}`);
+          if (bar) bar.classList.toggle("hidden");
+        });
+      });
+
+      container.querySelectorAll("[data-audit-sent]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          overrideVerbatimSentiment(btn.dataset.auditId, btn.dataset.auditSent, false);
+        });
+      });
+
+      container.querySelectorAll("[data-audit-sarcasm]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          overrideVerbatimSentiment(btn.dataset.auditSarcasm, null, true);
+        });
+      });
+
+      lucide.createIcons({ root: container });
+    }
+
+    function updateVerbatimFilterTabs() {
+      document.querySelectorAll(".v-tab").forEach(btn => {
+        if (btn.dataset.filter === activeVerbatimFilter) {
+          btn.className = "v-tab px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-charcoal text-white transition-all";
+        } else {
+          btn.className = "v-tab px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-100 text-neu hover:text-charcoal transition-all";
+        }
+      });
+    }
+
+    function renderRecList(id, items) {
+      const el = document.getElementById(id);
+      if (!items || !items.length) {
+        el.innerHTML = `<li class="text-neu italic">Belum ada rekomendasi.</li>`;
+        return;
+      }
+      el.innerHTML = items.map(text => `<li>${escapeHtml(text)}</li>`).join("");
+    }
+
+    /**
+     * ============================================================================
+     * INTERACTIVE STRATEGIC Q&A ("TANYA DENGERIN AJA")
+     * ============================================================================
+     */
+    function resetQaThread() {
+      const thread = document.getElementById("qa-thread");
+      thread.innerHTML = "";
+      thread.classList.add("hidden");
+      document.getElementById("btn-clear-chat").classList.add("hidden");
+    }
+
+    function formatSimpleMarkdown(text) {
+      return escapeHtml(text)
+        .replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold text-charcoal">$1</strong>')
+        .replace(/\n- /g, '<br>&bull; ')
+        .replace(/\n\* /g, '<br>&bull; ')
+        .replace(/\n/g, '<br>');
+    }
+
+    async function askExecutiveAi(questionText) {
+      const q = (questionText || "").trim();
+      if (!q || !currentData) return;
+
+      const thread = document.getElementById("qa-thread");
+      const inputEl = document.getElementById("input-qa");
+      const btnSend = document.getElementById("btn-send-qa");
+
+      thread.classList.remove("hidden");
+      document.getElementById("btn-clear-chat").classList.remove("hidden");
+      inputEl.value = "";
+      btnSend.disabled = true;
+
+      // Render bubble user
+      const userBubble = document.createElement("div");
+      userBubble.className = "flex justify-end animate-fade-up";
+      userBubble.innerHTML = `
+        <div class="max-w-[85%] bg-charcoal text-white text-xs sm:text-sm px-4 py-2.5 rounded-2xl rounded-tr-sm">
+          ${escapeHtml(q)}
+        </div>
+      `;
+      thread.appendChild(userBubble);
+
+      // Render bubble loading AI
+      const aiBubble = document.createElement("div");
+      aiBubble.className = "flex justify-start animate-fade-up";
+      aiBubble.innerHTML = `
+        <div class="max-w-[90%] bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm px-4 py-3 rounded-2xl rounded-tl-sm space-y-1">
+          <div class="flex items-center gap-2 text-brand font-semibold text-xs">
+            <span class="w-3 h-3 border-2 border-brand border-t-transparent rounded-full animate-spin"></span>
+            <span>Dengerin Aja sedang menyusun jawaban strategis...</span>
+          </div>
+        </div>
+      `;
+      thread.appendChild(aiBubble);
+      thread.scrollTop = thread.scrollHeight;
+
+      try {
+        const snapshotSummary = {
+          topik: currentData.keyword,
+          rentangWaktu: currentData.timeframe,
+          kpis: currentData.kpis,
+          topPlatforms: currentData.platforms.slice(0, 4),
+          originator: currentData.originator,
+          catalyst: currentData.catalyst,
+          drivers: currentData.drivers,
+          executiveVerdict: currentData.analysis.executiveVerdict,
+          sampleVerbatims: currentData.verbatims.slice(0, 6).map(v => `${v.account} (${v.platform}, ${v.sentiment}${v.isSarcasm ? '/sarkasme' : ''}): ${v.text}`)
+        };
+
+        const payload = {
+          contents: [{
+            role: "user",
+            parts: [{
+              text: `Data Dashboard Listening Saat Ini:\n${JSON.stringify(snapshotSummary)}\n\nPertanyaan Eksekutif Pengguna:\n${q}`
+            }]
+          }],
+          systemInstruction: {
+            parts: [{
+              text: "Kamu adalah konsultan strategi komunikasi, PR, dan media intelligence 'Dengerin Aja'. Jawab pertanyaan pengguna dalam Bahasa Indonesia yang tajam, ringkas, langsung dapat dieksekusi, dan mengacu secara akurat pada data dashboard yang diberikan."
+            }]
+          }
+        };
+
+        const result = await fetchGeminiWithRetry(payload);
+        const answer = result?.candidates?.[0]?.content?.parts?.[0]?.text || "Maaf, tidak ada jawaban yang dihasilkan.";
+
+        aiBubble.innerHTML = `
+          <div class="max-w-[92%] bg-slate-50 border border-slate-200 text-slate-700 text-xs sm:text-sm px-4 py-3 rounded-2xl rounded-tl-sm leading-relaxed">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <span class="text-[11px] font-bold text-brand uppercase tracking-wider">Dengerin Aja AI</span>
+              <button type="button" class="btn-copy-qa text-[11px] text-neu hover:text-charcoal font-medium inline-flex items-center gap-1">
+                <i data-lucide="copy" class="w-3 h-3"></i> Salin
+              </button>
+            </div>
+            <div>${formatSimpleMarkdown(answer)}</div>
+          </div>
+        `;
+
+        aiBubble.querySelector(".btn-copy-qa").addEventListener("click", () => {
+          if (copyTextSafe(answer)) showToast("Jawaban AI disalin ke clipboard.", "success");
+        });
+        lucide.createIcons({ root: aiBubble });
+      } catch (err) {
+        if (err?.isAuthError) {
+          openSettingsModal();
+          aiBubble.innerHTML = `
+            <div class="max-w-[90%] bg-brand-soft border border-brand-border text-charcoal text-xs px-4 py-2.5 rounded-2xl">
+              API Key Gemini diperlukan untuk menjalankan Asisten AI langsung dari browser Anda. Silakan simpan API Key di jendela pengaturan.
+            </div>
+          `;
+        } else {
+          aiBubble.innerHTML = `
+            <div class="max-w-[90%] bg-neg-soft border border-red-200 text-neg-dark text-xs px-4 py-2.5 rounded-2xl">
+              Gagal memproses pertanyaan ke Gemini AI. Silakan coba lagi.
+            </div>
+          `;
+        }
+      } finally {
+        btnSend.disabled = false;
+        thread.scrollTop = thread.scrollHeight;
+      }
+    }
+
+    /**
+     * ============================================================================
+     * RIWAYAT SNAPSHOT (LOCAL STORAGE)
+     * ============================================================================
+     */
+    function loadHistorySnapshots() {
+      try {
+        const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function saveSnapshotToHistory(snapshot) {
+      try {
+        const list = loadHistorySnapshots().filter(item => item.id !== snapshot.id);
+        list.unshift(snapshot);
+        localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(list.slice(0, 12)));
+        updateHistoryBadge();
+      } catch (e) {
+        // Abaikan jika quota storage penuh
+      }
+    }
+
+    function updateHistoryBadge() {
+      const list = loadHistorySnapshots();
+      const badge = document.getElementById("header-history-badge");
+      if (list.length > 0) {
+        badge.textContent = list.length;
+        badge.classList.remove("hidden");
+      } else {
+        badge.classList.add("hidden");
+      }
+    }
+
+    function renderHistoryDrawer() {
+      const list = loadHistorySnapshots();
+      const container = document.getElementById("history-list");
+      document.getElementById("history-count-label").textContent = `${list.length} snapshot tersimpan`;
+
+      if (!list.length) {
+        container.innerHTML = `
+          <div class="text-center py-12 px-4 text-neu">
+            <i data-lucide="folder-open" class="w-8 h-8 mx-auto mb-2 text-slate-300"></i>
+            <p class="text-sm font-semibold text-charcoal mb-1">Belum ada riwayat tersimpan</p>
+            <p class="text-xs">Setiap hasil analisa AI atau Data Mentah otomatis tersimpan di sini.</p>
+          </div>
+        `;
+        lucide.createIcons({ root: container });
+        return;
+      }
+
+      container.innerHTML = list.map(item => {
+        const nssSign = item.kpis.nss > 0 ? "+" : "";
+        const nssColor = item.kpis.nss >= 15 ? "text-pos-dark bg-pos-soft" : item.kpis.nss < 0 ? "text-neg-dark bg-neg-soft" : "text-slate-700 bg-slate-100";
+        return `
+          <div class="p-3.5 rounded-xl border border-slate-200 hover:border-brand bg-white transition-all cursor-pointer group" data-load-snapshot="${escapeHtml(item.id)}">
+            <div class="flex items-start justify-between gap-2 mb-1">
+              <h4 class="font-display font-bold text-sm text-charcoal group-hover:text-brand transition-colors">${escapeHtml(item.keyword)}</h4>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold tabular-nums shrink-0 ${nssColor}">NSS ${nssSign}${item.kpis.nss}</span>
+            </div>
+            <p class="text-[11px] text-neu mb-2">${escapeHtml(item.generatedAt)}</p>
+            <div class="flex items-center justify-between text-[11px] text-slate-600 tabular-nums">
+              <span>${formatNumber(item.kpis.totalMentions)} mentions</span>
+              <span>Pos ${item.kpis.positivePct}% &bull; Neg ${item.kpis.negativePct}%</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      container.querySelectorAll("[data-load-snapshot]").forEach(el => {
+        el.addEventListener("click", () => {
+          const found = list.find(x => x.id === el.dataset.loadSnapshot);
+          if (found) {
+            currentData = JSON.parse(JSON.stringify(found));
+            renderDashboard(currentData);
+            resetQaThread();
+            document.getElementById("history-drawer-backdrop").classList.add("hidden");
+            showToast(`Snapshot "${found.keyword}" berhasil dimuat.`, "success");
+          }
+        });
+      });
+
+      lucide.createIcons({ root: container });
+    }
+
+    /**
+     * ============================================================================
+     * EKSPOR CSV VERBATIM & SALIN RINGKASAN EKSEKUTIF
+     * ============================================================================
+     */
+    function exportVerbatimsCsv() {
+      if (!currentData || !currentData.verbatims?.length) return;
+      const headers = ["Platform", "Akun", "Sentimen", "Sarkasme", "DiauditManual", "Kutipan", "AlasanKalibrasi"];
+      const csvSafe = (val) => `"${String(val || "").replace(/"/g, '""')}"`;
+
+      const rows = currentData.verbatims.map(v => [
+        csvSafe(v.platform),
+        csvSafe(v.account),
+        csvSafe(v.sentiment),
+        csvSafe(v.isSarcasm ? "Ya" : "Tidak"),
+        csvSafe(v.edited ? "Ya" : "Tidak"),
+        csvSafe(v.text),
+        csvSafe(v.reasoning)
+      ].join(","));
+
+      const csvContent = "\uFEFF" + [headers.join(","), ...rows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const safeName = (currentData.keyword || "verbatim").toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      a.href = url;
+      a.download = `Dengerin-Aja-${safeName}-verbatims.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("File CSV verbatim berhasil diunduh.", "success");
+    }
+
+    function copyExecutiveSummary() {
+      if (!currentData) return;
+      const k = currentData.kpis;
+      const nssSign = k.nss > 0 ? "+" : "";
+      const summary = [
+        `📊 RINGKASAN LISTENING — DENGERIN AJA`,
+        `Topik: ${currentData.keyword} (${currentData.timeframe})`,
+        `Total Percakapan: ${formatNumber(k.totalMentions)} mentions | ${formatNumber(k.uniqueAuthors)} unique authors | ${formatCompact(k.totalEngagement)} engagement`,
+        `Sentimen: Positif ${k.positivePct}% | Netral ${k.neutralPct}% | Negatif ${k.negativePct}% (NSS: ${nssSign}${k.nss})`,
+        `Indikasi Sarkasme: ${k.sarcasmPct}% | Status Tren: ${k.trendStatus}`,
+        ``,
+        `💡 EXECUTIVE VERDICT:`,
+        currentData.analysis.executiveVerdict,
+        ``,
+        `⚡ IMMEDIATE ACTION (24-48 JAM):`,
+        ...(currentData.analysis.recommendations.immediateAction || []).map(x => `• ${x}`)
+      ].join("\n");
+
+      if (copyTextSafe(summary)) {
+        showToast("Ringkasan eksekutif disalin! Siap ditempel ke WhatsApp/Slack/Email.", "success");
+      } else {
+        showToast("Gagal menyalin ke clipboard.", "error");
+      }
+    }
+
+    /**
+     * ============================================================================
+     * GENERATOR PRATINJAU & EKSPOR PDF EKSEKUTIF (DENGAN GRAFIK SVG VEKTOR)
+     * ============================================================================
+     */
+    function buildSvgDonut(posPct, neuPct, negPct) {
+      const r = 42;
+      const c = 2 * Math.PI * r;
+      const posLen = (posPct / 100) * c;
+      const neuLen = (neuPct / 100) * c;
+      const negLen = (negPct / 100) * c;
+
+      return `
+        <svg width="112" height="112" viewBox="0 0 112 112" xmlns="http://www.w3.org/2000/svg">
+          <g transform="rotate(-90 56 56)">
+            <circle cx="56" cy="56" r="${r}" fill="none" stroke="#F1F5F9" stroke-width="14" />
+            <circle cx="56" cy="56" r="${r}" fill="none" stroke="#10B981" stroke-width="14"
+              stroke-dasharray="${posLen} ${c}" stroke-dashoffset="0" />
+            <circle cx="56" cy="56" r="${r}" fill="none" stroke="#94A3B8" stroke-width="14"
+              stroke-dasharray="${neuLen} ${c}" stroke-dashoffset="${-posLen}" />
+            <circle cx="56" cy="56" r="${r}" fill="none" stroke="#EF4444" stroke-width="14"
+              stroke-dasharray="${negLen} ${c}" stroke-dashoffset="${-(posLen + neuLen)}" />
+          </g>
+          <text x="56" y="53" text-anchor="middle" font-size="10" fill="#64748B" font-family="Inter, sans-serif">NSS</text>
+          <text x="56" y="68" text-anchor="middle" font-size="15" font-weight="800" fill="#111827" font-family="Plus Jakarta Sans, sans-serif">${posPct - negPct > 0 ? '+' : ''}${posPct - negPct}</text>
+        </svg>
+      `;
+    }
+
+    function buildSvgTimeline(timeline) {
+      const vals = timeline?.values || [10, 20, 15];
+      const labels = timeline?.labels || vals.map((_, i) => `T${i + 1}`);
+      const w = 340, h = 92, padX = 20, padY = 14;
+      const maxVal = Math.max(...vals, 1);
+      const stepX = vals.length > 1 ? (w - padX * 2) / (vals.length - 1) : 0;
+
+      const points = vals.map((v, i) => {
+        const x = padX + i * stepX;
+        const y = h - padY - ((v / maxVal) * (h - padY * 2 - 8));
+        return { x, y, v, label: labels[i] || "" };
+      });
+
+      const linePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(" ");
+      const areaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${(h - padY).toFixed(1)} L ${points[0].x.toFixed(1)} ${(h - padY).toFixed(1)} Z`;
+
+      const dots = points.map((p, i) => {
+        const isPeak = i === timeline.peakIndex;
+        const isOrig = i === timeline.originIndex;
+        const fill = isPeak ? "#F97316" : isOrig ? "#111827" : "#FFFFFF";
+        const stroke = isPeak ? "#FFFFFF" : isOrig ? "#FFFFFF" : "#F97316";
+        const rad = isPeak || isOrig ? 4.5 : 2.8;
+        return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${rad}" fill="${fill}" stroke="${stroke}" stroke-width="1.8" />`;
+      }).join("");
+
+      const xLabels = points.map(p =>
+        `<text x="${p.x.toFixed(1)}" y="${h - 2}" text-anchor="middle" font-size="8.5" fill="#64748B" font-family="Inter, sans-serif">${escapeHtml(p.label)}</text>`
+      ).join("");
+
+      return `
+        <svg viewBox="0 0 ${w} ${h}" class="w-full h-24" xmlns="http://www.w3.org/2000/svg">
+          <path d="${areaPath}" fill="rgba(249, 115, 22, 0.14)" />
+          <path d="${linePath}" fill="none" stroke="#F97316" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+          ${dots}
+          ${xLabels}
+        </svg>
+      `;
+    }
+
+    function buildPdfReportHtml(data) {
+      const k = data.kpis;
+      const nssSign = k.nss > 0 ? "+" : "";
+      const nssColor = k.nss >= 15 ? "#10B981" : k.nss < 0 ? "#EF4444" : "#111827";
+
+      const platformRows = data.platforms.map(p => `
+        <tr class="border-b border-slate-100">
+          <td class="py-2 font-semibold text-charcoal">${escapeHtml(p.name === "X" ? "X / Twitter" : p.name)}</td>
+          <td class="py-2 text-neu">${p.type === "digital" ? "Digital Media" : "Social Media"}</td>
+          <td class="py-2 text-right font-semibold tabular-nums">${formatNumber(p.count)}</td>
+          <td class="py-2 text-right font-bold tabular-nums w-16">${p.pct}%</td>
+          <td class="py-2 pl-3 w-32">
+            <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+              <div style="width:${p.pct}%; background:${p.type === 'digital' ? '#F97316' : '#111827'}; height:100%;"></div>
+            </div>
+          </td>
+        </tr>
+      `).join("");
+
+      const negDriversHtml = (data.drivers?.negative || []).map(d => `
+        <div class="mb-2">
+          <div class="flex justify-between text-xs mb-0.5">
+            <span>${escapeHtml(d.label)}</span>
+            <strong class="text-neg-dark tabular-nums">${d.pct}%</strong>
+          </div>
+          <div class="w-full h-1.5 bg-slate-100 rounded-full"><div style="width:${d.pct}%; background:#EF4444; height:100%; border-radius:999px;"></div></div>
+        </div>
+      `).join("");
+
+      const posDriversHtml = (data.drivers?.positive || []).map(d => `
+        <div class="mb-2">
+          <div class="flex justify-between text-xs mb-0.5">
+            <span>${escapeHtml(d.label)}</span>
+            <strong class="text-pos-dark tabular-nums">${d.pct}%</strong>
+          </div>
+          <div class="w-full h-1.5 bg-slate-100 rounded-full"><div style="width:${d.pct}%; background:#10B981; height:100%; border-radius:999px;"></div></div>
+        </div>
+      `).join("");
+
+      const verbatimsHtml = (data.verbatims || []).slice(0, 6).map(v => `
+        <div class="p-3 rounded-lg border border-slate-200 bg-slate-50/50 mb-2 pdf-avoid-break">
+          <div class="flex justify-between items-center text-[11px] mb-1">
+            <span><strong>${escapeHtml(v.account)}</strong> &bull; ${escapeHtml(v.platform)}${v.edited ? " (Diaudit)" : ""}</span>
+            <span class="font-bold uppercase" style="color:${v.sentiment === 'positive' ? '#047857' : v.sentiment === 'negative' ? '#B91C1C' : '#64748B'}">
+              ${escapeHtml(v.sentiment)}${v.isSarcasm ? " • SARKASME" : ""}
+            </span>
+          </div>
+          <p class="text-xs text-charcoal italic mb-1">"${escapeHtml(v.text)}"</p>
+          <p class="text-[10px] text-neu"><strong>Kalibrasi:</strong> ${escapeHtml(v.reasoning)}</p>
+        </div>
+      `).join("");
+
+      const webSourcesSection = (data.webSources && data.webSources.length)
+        ? `<div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] pdf-avoid-break">
+            <p class="font-bold uppercase text-charcoal mb-1">Referensi Web Terverifikasi (Google Search):</p>
+            <ul class="list-disc pl-4 space-y-0.5 text-neu">
+              ${data.webSources.map(s => `<li><strong>${escapeHtml(s.title)}</strong> — ${escapeHtml(s.uri)}</li>`).join("")}
+            </ul>
+          </div>`
+        : "";
+
+      return `
+        <!-- HEADER LAPORAN -->
+        <div class="flex items-start justify-between border-b-2 border-charcoal pb-4 pdf-avoid-break">
+          <div>
+            <div class="inline-flex items-center gap-2 mb-1">
+              <span class="px-2 py-0.5 rounded bg-brand text-white text-[10px] font-bold uppercase tracking-wider">Dengerin Aja</span>
+              <span class="text-[11px] text-neu font-semibold">Executive Listening Report</span>
+            </div>
+            <h1 class="font-display font-extrabold text-2xl text-charcoal">${escapeHtml(data.keyword)}</h1>
+            <p class="text-xs text-neu mt-1">${escapeHtml(data.timeframe)} &bull; ${escapeHtml(data.generatedAt)}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-[10px] uppercase tracking-wider text-neu font-bold">Net Sentiment Score</p>
+            <p class="font-display font-extrabold text-3xl tabular-nums" style="color:${nssColor}">${nssSign}${k.nss}</p>
+          </div>
+        </div>
+
+        <!-- KONTEKS & RUBRIK KALIBRASI -->
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2 pdf-avoid-break">
+          <p class="font-bold uppercase tracking-wider text-[10px] text-brand">Parameter Grounding Context &amp; Kalibrasi Sentimen</p>
+          <p><strong>Deskripsi Topik:</strong> ${escapeHtml(data.contextUsed)}</p>
+          <div class="grid grid-cols-3 gap-2 pt-1">
+            <div class="bg-white p-2 rounded border border-emerald-200"><strong class="text-pos-dark">Positif:</strong> ${escapeHtml(data.rubricUsed.positive)}</div>
+            <div class="bg-white p-2 rounded border border-red-200"><strong class="text-neg-dark">Negatif:</strong> ${escapeHtml(data.rubricUsed.negative)}</div>
+            <div class="bg-white p-2 rounded border border-slate-200"><strong class="text-neu">Netral:</strong> ${escapeHtml(data.rubricUsed.neutral)}</div>
+          </div>
+        </div>
+
+        <!-- EXECUTIVE VERDICT -->
+        <div class="border-l-4 border-brand bg-brand-soft/40 p-4 rounded-r-xl pdf-avoid-break">
+          <p class="text-[10px] font-bold uppercase tracking-wider text-brand mb-1">Executive Verdict</p>
+          <p class="text-xs sm:text-sm text-charcoal leading-relaxed font-medium">${escapeHtml(data.analysis.executiveVerdict)}</p>
+        </div>
+
+        <!-- RINGKASAN VISUAL VEKTOR (DONUT SVG & TIMELINE SVG) -->
+        <div class="grid grid-cols-12 gap-3 pdf-avoid-break">
+          <div class="col-span-5 border border-slate-200 rounded-xl p-3.5 flex items-center gap-3">
+            <div class="shrink-0">${buildSvgDonut(k.positivePct, k.neutralPct, k.negativePct)}</div>
+            <div class="text-xs space-y-1.5 flex-1">
+              <p class="text-[10px] font-bold uppercase text-neu">Distribusi Sentimen</p>
+              <div class="flex justify-between"><span class="text-pos-dark font-semibold">Positif</span><strong class="tabular-nums">${k.positivePct}%</strong></div>
+              <div class="flex justify-between"><span class="text-slate-600 font-semibold">Netral</span><strong class="tabular-nums">${k.neutralPct}%</strong></div>
+              <div class="flex justify-between"><span class="text-neg-dark font-semibold">Negatif</span><strong class="tabular-nums">${k.negativePct}%</strong></div>
+              <p class="text-[10px] text-neu pt-1 border-t border-slate-100">Total: <strong>${formatNumber(k.totalMentions)}</strong> mentions</p>
+            </div>
+          </div>
+          <div class="col-span-7 border border-slate-200 rounded-xl p-3.5 flex flex-col justify-between">
+            <div class="flex justify-between items-center mb-1">
+              <p class="text-[10px] font-bold uppercase text-neu">Tren Volume Percakapan</p>
+              <p class="text-[10px] font-semibold text-brand">${escapeHtml(k.trendStatus)} (${escapeHtml(k.velocityLabel)})</p>
+            </div>
+            ${buildSvgTimeline(data.timeline)}
+            <div class="flex justify-between text-[10px] text-neu pt-1 border-t border-slate-100">
+              <span>Unique Authors: <strong class="text-charcoal">${formatNumber(k.uniqueAuthors)}</strong></span>
+              <span>Engagement: <strong class="text-charcoal">${formatCompact(k.totalEngagement)}</strong></span>
+              <span>Sarkasme: <strong class="text-neg-dark">${k.sarcasmPct}%</strong></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TABEL DISTRIBUSI PLATFORM -->
+        <div class="pdf-avoid-break">
+          <h2 class="font-display font-bold text-sm uppercase tracking-wider text-charcoal mb-2">1. Sebaran Platform (Social vs Digital Media)</h2>
+          <table class="w-full text-xs border-collapse">
+            <thead>
+              <tr class="border-b-2 border-slate-200 text-left text-[10px] uppercase text-neu">
+                <th class="py-1.5">Platform</th>
+                <th class="py-1.5">Kategori</th>
+                <th class="py-1.5 text-right">Mentions</th>
+                <th class="py-1.5 text-right">Porsi</th>
+                <th class="py-1.5 pl-3">Visual</th>
+              </tr>
+            </thead>
+            <tbody>${platformRows}</tbody>
+          </table>
+        </div>
+
+        <!-- ORIGINATOR VS CATALYST -->
+        <div class="grid grid-cols-2 gap-3 pdf-avoid-break">
+          <div class="border border-slate-200 rounded-xl p-3.5">
+            <p class="text-[10px] font-bold uppercase text-neu mb-1">First Poster (Pemicu Awal)</p>
+            <p class="text-xs font-bold text-charcoal">${escapeHtml(data.originator.account)} <span class="font-normal text-neu">(${escapeHtml(data.originator.platform)} &bull; ${escapeHtml(data.originator.category)})</span></p>
+            <p class="text-[11px] text-neu mb-1.5">${escapeHtml(data.originator.timestamp)}</p>
+            <p class="text-xs italic text-slate-700">"${escapeHtml(data.originator.quote)}"</p>
+          </div>
+          <div class="border border-brand-border rounded-xl p-3.5 bg-brand-soft/30">
+            <p class="text-[10px] font-bold uppercase text-brand mb-1">Top Catalyst (Penggerak Viral)</p>
+            <p class="text-xs font-bold text-charcoal">${escapeHtml(data.catalyst.account)} <span class="font-normal text-neu">(${escapeHtml(data.catalyst.platform)} &bull; ${escapeHtml(data.catalyst.pattern)})</span></p>
+            <p class="text-[11px] font-bold text-brand mb-1.5">${escapeHtml(data.catalyst.engagement)}</p>
+            <p class="text-xs text-slate-700">${escapeHtml(data.catalyst.reason)}</p>
+          </div>
+        </div>
+
+        <!-- KEY DRIVERS -->
+        <div class="grid grid-cols-2 gap-4 pdf-avoid-break">
+          <div class="border border-slate-200 rounded-xl p-3.5">
+            <h3 class="text-xs font-bold text-neg-dark uppercase mb-2">Pemicu Sentimen Negatif</h3>
+            ${negDriversHtml}
+          </div>
+          <div class="border border-slate-200 rounded-xl p-3.5">
+            <h3 class="text-xs font-bold text-pos-dark uppercase mb-2">Pemicu Sentimen Positif</h3>
+            ${posDriversHtml}
+          </div>
+        </div>
+
+        <!-- KUTIPAN VERBATIM PILIHAN -->
+        <div class="pdf-page-break">
+          <h2 class="font-display font-bold text-sm uppercase tracking-wider text-charcoal mb-2">2. Sampel Percakapan Kunci (Verbatim)</h2>
+          ${verbatimsHtml}
+        </div>
+
+        <!-- REKOMENDASI TAKTIS AI -->
+        <div class="pdf-avoid-break">
+          <h2 class="font-display font-bold text-sm uppercase tracking-wider text-charcoal mb-3">3. Rekomendasi Strategis &amp; Taktis AI</h2>
+          <div class="grid grid-cols-3 gap-3 text-xs">
+            <div class="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60">
+              <p class="font-bold text-neg-dark mb-2">Immediate Action (24–48 Jam)</p>
+              <ul class="list-disc pl-4 space-y-1.5 text-slate-700">
+                ${(data.analysis.recommendations.immediateAction || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60">
+              <p class="font-bold text-pos-dark mb-2">Communication Angle</p>
+              <ul class="list-disc pl-4 space-y-1.5 text-slate-700">
+                ${(data.analysis.recommendations.communicationAngle || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}
+              </ul>
+            </div>
+            <div class="border border-slate-200 rounded-xl p-3.5 bg-slate-50/60">
+              <p class="font-bold text-brand mb-2">Risk &amp; Watchlist</p>
+              <ul class="list-disc pl-4 space-y-1.5 text-slate-700">
+                ${(data.analysis.recommendations.riskWatchlist || []).map(x => `<li>${escapeHtml(x)}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        ${webSourcesSection}
+
+        <div class="border-t border-slate-200 pt-3 text-[10px] text-neu flex justify-between">
+          <span>Dihasilkan oleh Dengerin Aja — AI Social &amp; Digital Media Listening Engine</span>
+          <span>${data.mode === 'raw' ? 'Kalkulasi Deterministik Data Mentah' : data.webGrounded ? 'Sintesis AI Terverifikasi Google Search' : 'Sintesis AI Terkalibrasi'}</span>
+        </div>
+      `;
+    }
+
+    function openPdfModal() {
+      if (!currentData) return;
+      document.getElementById("pdf-report-content").innerHTML = buildPdfReportHtml(currentData);
+      const modal = document.getElementById("pdf-modal");
+      modal.classList.remove("hidden");
+      document.body.style.overflow = "hidden";
+      lucide.createIcons({ root: modal });
+    }
+
+    function closePdfModal() {
+      const modal = document.getElementById("pdf-modal");
+      modal.classList.add("hidden");
+      document.body.style.overflow = "";
+    }
+
+    async function downloadPdfFile() {
+      const element = document.getElementById("pdf-report-content");
+      const safeName = (currentData?.keyword || "Laporan")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+      const filename = `Dengerin-Aja-${safeName || "report"}.pdf`;
+
+      if (typeof html2pdf === "undefined") {
+        showToast("Library html2pdf tidak tersedia, membuka dialog cetak browser...", "info");
+        window.print();
+        return;
+      }
+
+      const btn = document.getElementById("btn-download-pdf");
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = `<span class="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin inline-block"></span> <span>Menyusun PDF...</span>`;
+
+      try {
+        await html2pdf()
+          .set({
+            margin: [10, 10, 10, 10],
+            filename,
+            image: { type: "jpeg", quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true, logging: false },
+            jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+            pagebreak: { mode: ["css", "legacy"] }
+          })
+          .from(element)
+          .save();
+        showToast(`Laporan "${filename}" berhasil diunduh!`, "success");
+      } catch (err) {
+        console.error("PDF Export Error:", err);
+        showToast("Ekspor langsung gagal, menggunakan dialog cetak Save as PDF...", "warning");
+        window.print();
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+      }
+    }
+
+    /**
+     * ============================================================================
+     * EVENT LISTENERS, FILE UPLOAD & INISIALISASI HALAMAN
+     * ============================================================================
+     */
+    function switchMode(mode) {
+      activeMode = mode;
+      const exploreTab = document.getElementById("tab-mode-explore");
+      const rawTab = document.getElementById("tab-mode-raw");
+      const explorePanel = document.getElementById("panel-mode-explore");
+      const rawPanel = document.getElementById("panel-mode-raw");
+
+      if (mode === "explore") {
+        exploreTab.className = "mode-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white text-charcoal shadow-sm flex items-center gap-2";
+        rawTab.className = "mode-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all text-neu hover:text-charcoal flex items-center gap-2";
+        explorePanel.classList.remove("hidden");
+        rawPanel.classList.add("hidden");
+      } else {
+        rawTab.className = "mode-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all bg-white text-charcoal shadow-sm flex items-center gap-2";
+        exploreTab.className = "mode-tab px-3.5 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all text-neu hover:text-charcoal flex items-center gap-2";
+        rawPanel.classList.remove("hidden");
+        explorePanel.classList.add("hidden");
+      }
+    }
+
+    function updateRawLineCounter() {
+      const val = document.getElementById("input-raw-mentions").value;
+      const count = parseRawLines(val).length;
+      document.getElementById("raw-line-count").textContent = `${count} baris valid`;
+    }
+
+    function handleRawFileLoad(file) {
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = String(e.target?.result || "").trim();
+        if (!text) {
+          showToast("File yang diunggah kosong.", "warning");
+          return;
+        }
+        document.getElementById("input-raw-mentions").value = text;
+        const baseName = file.name.replace(/\.(csv|txt|tsv)$/i, "").replace(/[_-]+/g, " ");
+        if (baseName) document.getElementById("input-raw-topic").value = baseName;
+        updateRawLineCounter();
+        showToast(`File "${file.name}" berhasil dimuat (${parseRawLines(text).length} baris).`, "success");
+      };
+      reader.onerror = () => showToast("Gagal membaca file yang dipilih.", "error");
+      reader.readAsText(file);
+    }
+
+    window.onload = function () {
+      // Muat sample awal agar dashboard langsung hidup
+      currentData = JSON.parse(JSON.stringify(PRELOADED_SAMPLE_DATA));
+      renderDashboard(currentData);
+      updateHistoryBadge();
+      updateSettingsBadge();
+
+      // Pengaturan API Key Standalone
+      document.getElementById("btn-open-settings").addEventListener("click", openSettingsModal);
+      document.getElementById("btn-close-settings").addEventListener("click", closeSettingsModal);
+      document.getElementById("settings-modal").addEventListener("click", (e) => {
+        if (e.target.id === "settings-modal") closeSettingsModal();
+      });
+      document.getElementById("btn-toggle-key-visibility").addEventListener("click", () => {
+        const inp = document.getElementById("input-api-key");
+        inp.type = inp.type === "password" ? "text" : "password";
+      });
+      document.getElementById("btn-save-settings").addEventListener("click", () => {
+        const keyVal = document.getElementById("input-api-key").value.trim();
+        const modelVal = document.getElementById("select-ai-model").value;
+        localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ apiKey: keyVal, model: modelVal }));
+        updateSettingsBadge();
+        closeSettingsModal();
+        showToast(keyVal ? `API Key tersimpan lokal (${modelVal}). Siap dijalankan langsung di browser!` : "Pengaturan model tersimpan.", "success");
+      });
+      document.getElementById("btn-clear-api-key").addEventListener("click", () => {
+        localStorage.removeItem(SETTINGS_STORAGE_KEY);
+        document.getElementById("input-api-key").value = "";
+        updateSettingsBadge();
+        showToast("API Key lokal telah dihapus dari browser.", "info");
+      });
+
+      // Mode switcher
+      document.getElementById("tab-mode-explore").addEventListener("click", () => switchMode("explore"));
+      document.getElementById("tab-mode-raw").addEventListener("click", () => switchMode("raw"));
+
+      // Toggle drawer kalibrasi sentimen
+      document.getElementById("btn-toggle-calibration").addEventListener("click", () => {
+        const drawer = document.getElementById("calibration-drawer");
+        const chevron = document.getElementById("calibration-chevron");
+        const label = document.getElementById("calibration-toggle-text");
+        const btn = document.getElementById("btn-toggle-calibration");
+
+        const isHidden = drawer.classList.contains("hidden");
+        drawer.classList.toggle("hidden");
+        chevron.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+        label.textContent = isHidden ? "Tutup Pengaturan" : "Buka Pengaturan";
+        btn.setAttribute("aria-expanded", String(isHidden));
+      });
+
+      // Quick preset chips
+      document.querySelectorAll(".preset-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          const p = TOPIC_PRESETS[chip.dataset.preset];
+          if (!p) return;
+          document.getElementById("input-keyword").value = p.keyword;
+          document.getElementById("input-context").value = p.context;
+          document.getElementById("rubric-pos").value = p.rubricPos;
+          document.getElementById("rubric-neg").value = p.rubricNeg;
+          document.getElementById("rubric-neu").value = p.rubricNeu;
+          showToast(`Konteks & rubrik "${p.keyword}" dimuat. Klik "Mulai Dengerin" untuk analisa AI.`, "info");
+        });
+      });
+
+      // Jalankan Mode A
+      document.getElementById("btn-run-explore").addEventListener("click", runExploreMode);
+      document.getElementById("input-keyword").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          runExploreMode();
+        }
+      });
+
+      // Mode B: Upload file CSV/TXT & Drag-Drop
+      const fileInput = document.getElementById("input-file-upload");
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files?.[0]) handleRawFileLoad(e.target.files[0]);
+        e.target.value = "";
+      });
+
+      const dropzone = document.getElementById("raw-dropzone");
+      ["dragenter", "dragover"].forEach(ev => {
+        dropzone.addEventListener(ev, (e) => {
+          e.preventDefault();
+          dropzone.classList.add("dropzone-active");
+        });
+      });
+      ["dragleave", "drop"].forEach(ev => {
+        dropzone.addEventListener(ev, (e) => {
+          e.preventDefault();
+          dropzone.classList.remove("dropzone-active");
+        });
+      });
+      dropzone.addEventListener("drop", (e) => {
+        const file = e.dataTransfer?.files?.[0];
+        if (file) handleRawFileLoad(file);
+      });
+
+      // Mode B: Muat contoh komentar & jalankan analisa
+      document.getElementById("btn-load-raw-sample").addEventListener("click", () => {
+        document.getElementById("input-raw-topic").value = "Layanan Mobile Banking Bank X";
+        document.getElementById("input-raw-mentions").value = SAMPLE_RAW_MENTIONS;
+        document.getElementById("input-context").value = "Fokus pada keandalan aplikasi mobile banking, transaksi QRIS, kecepatan transfer, layanan CS, dan performa operasional Bank X.";
+        document.getElementById("rubric-pos").value = "Apresiasi UI/UX, kecepatan transfer, fitur tabungan/investasi, dan respons CS yang membantu.";
+        document.getElementById("rubric-neg").value = "Keluhan maintenance, QRIS gagal, saldo terpotong, aplikasi force close, termasuk sarkasme netizen.";
+        document.getElementById("rubric-neu").value = "Pemberitaan faktual kinerja transaksi atau pertanyaan informasi fitur/limit akun.";
+        updateRawLineCounter();
+        showToast("12 contoh data mentah dimuat. Klik 'Analisa Data Mentah' untuk mulai.", "info");
+      });
+
+      document.getElementById("input-raw-mentions").addEventListener("input", updateRawLineCounter);
+      document.getElementById("btn-run-raw").addEventListener("click", runRawMode);
+
+      // Filter Verbatim Tabs & Live Search
+      document.querySelectorAll(".v-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+          activeVerbatimFilter = tab.dataset.filter;
+          updateVerbatimFilterTabs();
+          if (currentData) renderVerbatims(currentData.verbatims, activeVerbatimFilter, activeVerbatimSearch);
+        });
+      });
+
+      document.getElementById("input-verbatim-search").addEventListener("input", (e) => {
+        activeVerbatimSearch = e.target.value;
+        if (currentData) renderVerbatims(currentData.verbatims, activeVerbatimFilter, activeVerbatimSearch);
+      });
+
+      // Executive Q&A Assistant
+      document.getElementById("btn-send-qa").addEventListener("click", () => {
+        askExecutiveAi(document.getElementById("input-qa").value);
+      });
+      document.getElementById("input-qa").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          askExecutiveAi(e.target.value);
+        }
+      });
+      document.querySelectorAll(".qa-chip").forEach(chip => {
+        chip.addEventListener("click", () => askExecutiveAi(chip.dataset.q));
+      });
+      document.getElementById("btn-clear-chat").addEventListener("click", resetQaThread);
+
+      // History Drawer
+      document.getElementById("btn-open-history").addEventListener("click", () => {
+        renderHistoryDrawer();
+        document.getElementById("history-drawer-backdrop").classList.remove("hidden");
+      });
+      document.getElementById("btn-close-history").addEventListener("click", () => {
+        document.getElementById("history-drawer-backdrop").classList.add("hidden");
+      });
+      document.getElementById("history-drawer-backdrop").addEventListener("click", (e) => {
+        if (e.target.id === "history-drawer-backdrop") {
+          document.getElementById("history-drawer-backdrop").classList.add("hidden");
+        }
+      });
+      document.getElementById("btn-clear-history").addEventListener("click", () => {
+        localStorage.removeItem(HISTORY_STORAGE_KEY);
+        updateHistoryBadge();
+        renderHistoryDrawer();
+        showToast("Seluruh riwayat analisa telah dibersihkan.", "info");
+      });
+
+      // Header & Banner Actions
+      document.getElementById("btn-copy-summary").addEventListener("click", copyExecutiveSummary);
+      document.getElementById("btn-export-csv").addEventListener("click", exportVerbatimsCsv);
+
+      // Modal & Ekspor PDF
+      document.getElementById("btn-open-pdf").addEventListener("click", openPdfModal);
+      document.getElementById("btn-close-pdf").addEventListener("click", closePdfModal);
+      document.getElementById("btn-download-pdf").addEventListener("click", downloadPdfFile);
+      document.getElementById("btn-print-pdf").addEventListener("click", () => window.print());
+      document.getElementById("pdf-modal").addEventListener("click", (e) => {
+        if (e.target.id === "pdf-modal") closePdfModal();
+      });
+    };
+  </script>
+</body>
+</html>
